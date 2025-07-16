@@ -24,6 +24,8 @@ T = 800 + 273.15        # operating temperature of the soc
 P = ct.one_atm          # operating pressure of the soc
 F = ct.faraday*1e-3          # faraday constant
 R = ct.gas_constant*1e-3     # import universal gas constant
+## just a small change to the script
+
 
 # gasses 
 xH2 = 0.9
