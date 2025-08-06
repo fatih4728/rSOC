@@ -65,16 +65,12 @@ print('The starting mass of H2O is ', mH2O*1e3, ' gram.')
 
 
 # I want to calculate the ingoing mass flux
-VdotH2 = VdotFuel * xH2
-VdotH2O = VdotFuel - VdotH2
+mdotH2 = VdotFuel * xH2 * rhoH2
+mdotH2O = (VdotFuel - mdotH2/rhoH2) * rhoH2O
 
-mdotH2 = VdotH2 * rhoH2
-mdotH2O = VdotH2O * rhoH2O
 
 # for sake of simplicity, I will say, that the outgoing mass flux is equal
 mdotOutTotal = mdotH2 + mdotH2O
-# mdotOutH2 = mdotOutTotal * 0.5
-# mdotOutH2O = mdotOutTotal - mdotOutH2
 
 
 ## here, I will start the loop
@@ -83,16 +79,17 @@ mdotOutTotal = mdotH2 + mdotH2O
 # do I do this steady state or dynamic?
 mH2i = []
 mH2Oi = []
-t = np.arange(0, 1000, 1)
+t = np.linspace(0, .1, 1000)
 for i in t:
     # loop over 1000 seconds in 1 second steps
-    mdotOutH2 = mH2 * 0.1
-    mH2 = mdotH2 - mdotOutH2
-    
-    mdotOutH2O = mH2O * 0.2
-    mH2O = mdotH2O - mdotOutH2O
+    # influx and outflux of H2:
+    mH2 += mdotH2
+    # influx and outflux of H2O
+    mH2O += mdotH2O
+    # append the values
     mH2i.append(mH2)
     mH2Oi.append(mH2O)
+    
 mH2i = np.array(mH2i)
 mH2Oi = np.array(mH2Oi)
 
