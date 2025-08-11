@@ -58,7 +58,7 @@ knudsenMatrix = np.array(knudsenMatrix)
 
 ## The effective diffusion coefficient stems from an equation I will get
 #  later on. For now I will use a fixed value
-diffusionMatrix = np.array([[0.0, 7.8e-5, 6-9e-5], [7.8e-5, 0, 2.1e-5], [6.9e-5, 2.1e-5, 0.0]])
+diffusionMatrix = np.array([[0.0, 7.8e-5, 6-9e-5], [7.8e-5, 0., 2.1e-5], [6.9e-5, 2.1e-5, 0.0]])
 
 # Permability by the Kozeny-Carman relationship
 Bg = epsilon**3 * (2*rp)**2 / 72 / tau / (1 - epsilon)**2
