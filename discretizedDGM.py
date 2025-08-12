@@ -25,13 +25,13 @@ R = ct.gas_constant*1e-3     # import universal gas constant
 
 
 # necessary coefficients
-epsilon = 0.3       # porosity of the electrode
+epsilon = 0.3       # porosity of the electrode (affects mass balance; smaller -> worse)
 tau = 5.           # tortuosity of the electrode
 M = np.array([2e-3, 28e-3, 18e-3]) # molar weights of H2, N2, H2O
-rp = 1e-7           # radius of the pores
+rp = 5.e-7           # radius of the pores (affects mass balance; smaller -> worse)
 N = 3               # number of species
 
-dEle = 20e-5         # thickness of the electrode
+dEle = 200e-6         # thickness of the electrode (affects mass balance a lot; bigger -> worse)
 XT = P/R/T
 
 # %%
@@ -44,11 +44,13 @@ i = 1.e4           # current density is 1 A/cm²
 ndotH2 = i/F/2
 ndotO2 = ndotH2/2
 ndotH2O = ndotH2
-J = np.array([-ndotH2, -ndotO2 * 0., ndotH2O])     # molar flux in mol/m²/s (A = 1 m²)
+j = np.array([-ndotH2, -ndotO2 * 0., ndotH2O])     # molar flux in mol/m²/s (A = 1 m²)
+A = 1
+J = j * A
 
 # the diffusion matrix, with arbitrary numbers
 D = np.array([[0.0, 7.8e-5, 6.9e-5], [7.8e-5, 0, 2.1e-5], [6.9e-5, 2.1e-5, 0.0]])
-
+D = D*0. + 1.e-5
 
 # knudsen Array
 def knudsenCoeff(epsilon,tau,M):
@@ -60,16 +62,16 @@ for k in range(N):
     knudsenArray.append(Dknudsen)
 Dkn = np.array(knudsenArray)
 
-# Permability by the Kozeny-Carman relationship
+# Permeability by the Kozeny-Carman relationship
 Bg = epsilon**3 * (2*rp)**2 / 72 / tau / (1 - epsilon)**2
 
 # viscosity of the mix
 mu = np.array([1.84e-5, 3.78e-5, 3.26e-5])    # dynamic visosities at 600°C
 muMix = xC*mu                 # dynamic for the mix
-muMix = muMix.sum()         
+muMix = muMix.sum()/3.         
 
 # pressure difference
-dp = 1000.       # arbitrary pressure differences in Pa
+dp = 5.e4       # arbitrary pressure differences in Pa
 dpdz = dp/dEle
 
 # calulate the dx/dz
@@ -85,22 +87,8 @@ dxdz *= -1
 XM = XC - dxdz * dEle
 
 
-# calculate the new x
-# for k in range(N):
-#     for l in range(N):
-#         sumTerm = 0.
-#         if l != k:
-#             sumTerm = (xC[l]*J[k] - xC[k]*J[l])/(xT*D[k, l])
-#     xM[k] = d * sumTerm + d*J[k]/Dkn[k]+xC[k]*Bg/Dkn[k]/muMix*dp
-
-# Np = 1000
-# XH2 = np.linspace(XC[0], XM[0], Np)
-# XO2 = np.linspace(XC[1], XM[1], Np)
-# XH2O = np.linspace(XC[2], XM[2], Np)
-# xDEle = np.linspace(0, dEle, Np)
-# # plt.plot(xDEle, XH2, label=r'$X_{H2}$')
-# # plt.plot(xDEle, XO2, label=r'$X_{O2}$')
-# plt.plot(xDEle, XH2O, label=r'$X_{H2O}$')
+xM = XM / XT
+print(xM.sum())
 
 
 
