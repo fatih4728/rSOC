@@ -65,7 +65,7 @@ import matplotlib.patches as patches
 
 
 # Create figure and axes
-fig, ax = plt.subplots(figsize=(6, 4))
+fig, ax = plt.subplots(figsize=(5, 4))
 
 # Draw control volume as a rectangle
 control_volume = patches.Rectangle((1, 1), 4, 2, linewidth=2, edgecolor='black', facecolor='none')
