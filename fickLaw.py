@@ -24,7 +24,9 @@ R = ct.gas_constant*1e-3     # import universal gas constant
 
 
 i = 1.e4           # current density is 1 A/cm²
-ndotH2 = i/F/2
+A = 1e-4
+I = i * A
+ndotH2 = I/F/2
 ndotH2O = ndotH2
 J = np.array([-ndotH2, ndotH2O])     # molar flux in mol/m²/s (A = 1 m²)
 
@@ -43,7 +45,7 @@ dcdz = -J / D_AB
 c2 = c1 - dcdz * L
 x2 = c2 / cTotal
 
-
+print(fr"x_H2 at the electrolyte is {x2[0]:.2}")
 
 
 
