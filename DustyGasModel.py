@@ -195,6 +195,7 @@ if __name__=="__main__":
     xC = np.array([0.9, 0.1])      # the molar fraction at the channel
     XC = xC*XT                     # the molar concentration
     
+    
     # viscosity of the mix
     mu = np.array([1.84e-5, 3.26e-5])    # dynamic visosities at 600°C
     muMix = (xC*mu).sum()                 # dynamic for the mix
@@ -215,12 +216,25 @@ if __name__=="__main__":
     
     # start the loop to calculate mole fraction and pressure difference            
     # xM, dp, addInfo = calculateMoleFraction(L = dEle, acc = 1.e-5, maxSteps = 1e6)
+    dgm = DustyGasModel(porosity = epsilon, 
+                        tortuosity = tau, 
+                        poreRadius = rp, 
+                        c1 = XC, 
+                        M = M, 
+                        muMix = muMix, 
+                        J = calculateMolarFlux(i, A),
+                        L = dEle,
+                        T = T)
+    
+    
+    # Dab = dgm.calculateMoleFraction()
+    xM, dp, addInfo = dgm.calculateMoleFraction()
 
     
-    # if dp < 1.e5:
-    #     print(f"\nxH2 at the electrolyte is {xM[0]:.5}")
-    #     print(f"The sum of the molar fractions is {xM.sum():.4}")
-    #     print(f"dp = {dp*1e-2:.3} mbar")
+    if dp < 1.e5:
+        print(f"\nxH2 at the electrolyte is {xM[0]:.5}")
+        print(f"The sum of the molar fractions is {xM.sum():.4}")
+        print(f"dp = {dp*1e-2:.3} mbar")
 
 
 
