@@ -9,13 +9,14 @@ This shall be the DGM in class form
 
 
 import numpy as np
+from scipy.constants import Boltzmann
 
 
 # %%
 # creating the class
 class DustyGasModel:
     def __init__(s, porosity, tortuosity, poreRadius, 
-                 c1, M, muMix, J, L, T):
+                 c1, M, mu, J, L, T):
         s.epsilon = porosity
         s.tortuosity = tortuosity
         s.rp = poreRadius
@@ -24,7 +25,8 @@ class DustyGasModel:
         s.J = J
         s.L = L
         s.T = T
-        s.muMix = muMix
+        s.mu = mu
+        s.muMix = np.average(mu)
         s.XT = s.XC.sum()
 
     def permeabilityFactorBg(s):
@@ -44,8 +46,16 @@ class DustyGasModel:
     
     def binaryDiffusion(s):
         """Effective binary diffusion coefficient"""
-        Dab = (np.zeros((len(s.M), len(s.M))) + 1.e-5)
+        Dab = (np.zeros((len(s.M), len(s.M))) + 5.38e-7)
         return Dab * s.epsilon / s.tortuosity
+    
+    def binaryDiffusionSE(s):
+        Dab = np.zeros((len(s.M), len(s.M)))
+        for k in range(len(Dab)):
+            for l in range(len(Dab)):
+                Dab[k, l] = Boltzmann * s.T / 6 / np.pi / s.rp / s.mu[l] 
+        # print(Dab)
+        return Dab * s.epsilon / s.tortuosity * 2
     
     def knudsenCoeff(s):
         """
@@ -53,9 +63,10 @@ class DustyGasModel:
         """
         R = 8.314462618153241     # import universal gas constant
         return (4/3*s.epsilon/s.tortuosity*s.rp
-                *np.sqrt(8*R*s.T/np.pi/s.M))
+                *np.sqrt(2*R*s.T/np.pi/s.M))
     
-    def Fdxdz(s, dpdz):
+    
+    def Fdxdz(s, dpdz, Dab, Dkn, Bg):
         """
         this calculates the derivative of the molar concentration
 
@@ -84,20 +95,19 @@ class DustyGasModel:
         """
         N = len(s.J)
         dxdz = np.zeros((N))
-        Dab = s.binaryDiffusion()
-        Dkn = s.knudsenCoeff()
-        Bg = s.permeabilityFactorBg()
+        
+        # print(Bg)
         for k in range(N):
             sumTerm = 0.
             for l in range(N):  
                 if l != k:
                     sumTerm += (s.XC[l]*s.J[k] - s.XC[k]*s.J[l])/(s.XT*Dab[k, l])
             dxdz[k] = sumTerm + s.J[k]/Dkn[k] - s.XC[k]*Bg/Dkn[k]/s.muMix*dpdz
-        
+            # print(dxdz)
         return dxdz * -1.
     
     
-    def calculateMoleFraction(s, acc = 1.e-5, maxSteps=1.e6):
+    def calculateMoleFraction(s, acc = 1.e-3, maxSteps=1.e6):
             """
             calculate the mole fraction at L
 
@@ -118,21 +128,26 @@ class DustyGasModel:
                 pressure difference required.
 
             """
+            Dab = s.binaryDiffusion()
+            Dkn = s.knudsenCoeff()
+            print(Dkn)
+            Bg = s.permeabilityFactorBg()
             dp = 1
             counter = 0
             xM = np.array([0., 0.])    
-            while abs(xM.sum()-1) > acc:
+            while abs(xM.sum()-1) > acc: 
                 counter += 1
                 if xM.sum()-1 > 0:
                     dp += 1
-                else:
-                    dp -= 1
+                # else:
+                #     dp -= 1
                 dpdz = dp/s.L        
-                dxdz = s.Fdxdz(dpdz)
+                dxdz = s.Fdxdz(dpdz, Dab, Dkn, Bg)
                 XM = s.XC - dxdz * s.L    
                 xM = XM / s.XT
                             
                 if  counter > maxSteps:
+                    print("maximum iteration steps have been reached")
                     break
                 if dp >= 1.e5:
                     print("pressure difference required is > 1 bar")
@@ -160,10 +175,9 @@ def calculateMolarFlux(i, A):
 
     """
     F = 96485.33212331001          # faraday constant
-    ndotH2 = i/F/2
+    ndotH2 = i*A/F/2
     ndotH2O = ndotH2
-    j = np.array([-ndotH2, ndotH2O])
-    return j * A
+    return np.array([-ndotH2, ndotH2O])
 
 
 
@@ -198,7 +212,7 @@ if __name__=="__main__":
     
     # viscosity of the mix
     mu = np.array([1.84e-5, 3.26e-5])    # dynamic visosities at 600°C
-    muMix = (xC*mu).sum()                 # dynamic for the mix
+    muMix = (xC*mu).sum()                # dynamic for the mix
     
     # %%
     
@@ -208,12 +222,6 @@ if __name__=="__main__":
     # diffusion matrix
     D = np.zeros((2, 2)) + 1.e-5
     
-    # knudsen Array
-    # Dkn = knudsenCoeff(epsilon, tau, M)
-    
-    # Permeability by the Kozeny-Carman relationship
-    # Bg = permeabilityFactorBg(epsilon, tau, rp)
-    
     # start the loop to calculate mole fraction and pressure difference            
     # xM, dp, addInfo = calculateMoleFraction(L = dEle, acc = 1.e-5, maxSteps = 1e6)
     dgm = DustyGasModel(porosity = epsilon, 
@@ -221,7 +229,7 @@ if __name__=="__main__":
                         poreRadius = rp, 
                         c1 = XC, 
                         M = M, 
-                        muMix = muMix, 
+                        mu = mu, 
                         J = calculateMolarFlux(i, A),
                         L = dEle,
                         T = T)
@@ -230,6 +238,8 @@ if __name__=="__main__":
     # Dab = dgm.calculateMoleFraction()
     xM, dp, addInfo = dgm.calculateMoleFraction()
 
+
+    dgm.binaryDiffusionSE()
     
     if dp < 1.e5:
         print(f"\nxH2 at the electrolyte is {xM[0]:.5}")

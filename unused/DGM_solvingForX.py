@@ -25,7 +25,7 @@ R = ct.gas_constant*1e-3     # import universal gas constant
 
 # necessary coefficients
 epsilon = 0.5       # porosity of the electrode
-tau = 0.5           # tortuosity of the electrode
+tau = 4.0           # tortuosity of the electrode
 M_H2 = 2e-3         # molar weight of H2
 M_N2 = 28e-3        # molar weight of N2
 M_H2O = 18e-3       # molar weight of H2O
@@ -67,7 +67,7 @@ Bg = epsilon**3 * (2*rp)**2 / 72 / tau / (1 - epsilon)**2
 
 # %%
 ## I want to have 3 gasses: N2, H2 and H2O. So N = 3
-xFC = np.array([0.7, 0.2, 0.1])      # the molar fractions at the flow channel
+xFC = np.array([0.5, 0.0, 0.5])      # the molar fractions at the flow channel
 H = []
 for k in range(N):
     row = []
@@ -87,8 +87,8 @@ D_DGM = np.linalg.inv(H)
 
 
 # %%
-xMem = np.array([0.5, 0.2, 0.3])      # molar fraction at the membrane
-delta = 1e-5                # thickness of the electrode
+xElyte = np.array([0.4, 0.0, 0.6])      # molar fraction at the membrane
+delta = 200e-6                # thickness of the electrode
 mu = np.array([1.84e-5, 3.78e-5, 3.26e-5])    # dynamic visosities at 600°C
 muMix = xFC*mu                 # dynamic for the mix
 muMix = muMix.sum()              
@@ -99,15 +99,16 @@ for k in range(N):
     firstPart = 0.
     secPart = 0.
     for l in range(N):
-        firstPart += D_DGM[k, l]*(xFC[k]-xMem[k]/delta)
+        firstPart += D_DGM[k, l]*(xFC[k]-xElyte[k]/delta)
         secPart +=D_DGM[k, l]*xFC[l]/knudsenMatrix[l]
     Jkx = - firstPart - secPart*Bg/muMix*dp
     Jk.append(Jkx)
 Jk = np.array(Jk)
 
+I = Jk[0]*2*F/M_H2*1e-3
 
-
-
+print(Jk)
+print(I)
 
 
 
