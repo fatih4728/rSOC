@@ -175,7 +175,7 @@ def calculateMolarFlux(i, A):
 
     """
     F = 96485.33212331001          # faraday constant
-    ndotH2 = i*A/F/2
+    ndotH2 = i/F/2 *1e4
     ndotH2O = ndotH2
     return np.array([-ndotH2, ndotH2O])
 

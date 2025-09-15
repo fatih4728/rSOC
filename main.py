@@ -52,6 +52,7 @@ rhoH2 = PropsSI('D', 'P', P, 'T', Tflow, 'H2')
 rhoH2O = PropsSI('D', 'P', P, 'T', Tflow, 'H2O')
 rho = np.array([rhoH2, rhoH2O])
 
+J = calculateMolarFlux(i, A)
 
 # create the dusty gas model object
 dgm = DustyGasModel(porosity = epsilon, 
@@ -60,15 +61,13 @@ dgm = DustyGasModel(porosity = epsilon,
                     c1 = XC, 
                     M = M,
                     mu = mu, 
-                    J = calculateMolarFlux(i, A),
+                    J = J,
                     L = dEle,
                     T = T)
-J = calculateMolarFlux(i, A)
+# J = calculateMolarFlux(i, A)
 
 # get the values of the DGM diffusion
 xM, dp, addInfo = dgm.calculateMoleFraction() 
-
-
 
 
 
