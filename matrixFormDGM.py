@@ -135,9 +135,9 @@ w_tpb = x_tpb * M / np.sum(x_tpb * M)
 
 # %%
 print(f'Compostion by weight @channel \t[H2, H20] is {w}')
-# print(f'Compostion by weight @tpb     \t[H2, H20] is {w_tpb}')
+print(f'Compostion by weight @tpb     \t[H2, H20] is {w_tpb}')
 # print(f'The pressure difference is {dp_total:.5} Pa,')
-# print(f'the total pressure is {(P + dp)*1e-5:.5} bar')
+print(f'the total pressure is {(P + dp)*1e-5:.5} bar')
     
     
     
