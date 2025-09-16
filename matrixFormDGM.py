@@ -14,7 +14,7 @@ from numpy.linalg import inv
 
 
 class DustyGasModelZhou:
-    def __init__(self, epsilon, tau, rp, c_ch, M, mu, i, L, T,
+    def __init__(self, Bg, c_ch, M, mu, i, L, T,
                  D_binaryEff, D_knudsenEff):
         # self.epsilon = epsilon
         # self.tau = tau
@@ -31,29 +31,12 @@ class DustyGasModelZhou:
         self.N = 2
         self.D_binaryEff = D_binaryEff
         self.D_knudsenEff = D_knudsenEff
-        
-    def permeabilityFactorBg(self):
-        """
-        This calculates the permeability factor commonly noted as Bg
-        Here the Kozeny-Carman relationship is used, according to the
-        Zhou paper.
-        ___
-        epsilon = porosity
-        tau = tortuosity
-        rp = pore radius
-        ___
-        
-        """
-        # (s.epsilon**3 * (2*s.rp)**2 / 72 
-        #       / s.tortuosity / (1 - s.epsilon)**2)
-        return 5.37e-17
+        self.Bg = Bg
+                
 
     def calculate_D_DGM(self):
         H = np.zeros((self.N, self.N))
         sumTerm = 0.
-        # calculate the D_DGM Matrix, by calculating H and inversing it
-        # array([[9.34443174e-06, 1.56070181e-07],
-        #      [1.65522474e-07, 2.75351101e-05]])
         for k in range(self.N):
             for l in range(self.N):
                 for j in range(self.N):
@@ -72,7 +55,7 @@ class DustyGasModelZhou:
         D_knudsenEff = self.D_knudsenEff
         X_ch = self.c_ch
         dz = self.z
-        Bg = self.permeabilityFactorBg()
+        Bg = self.Bg
         muMix = self.muMix
         J = self.J
         
@@ -105,9 +88,25 @@ class DustyGasModelZhou:
         return x_zhou, P_zhou
 
 
+def permeabilityFactorBg(epsilon, tau, rp):
+    """
+    This calculates the permeability factor commonly noted as Bg
+    Here the Kozeny-Carman relationship is used, according to the
+    Zhou paper.
+    
+    """
+    # 5.37e-17
+    return  (epsilon**3 * (2*rp)**2 / 72 / tau / (1 - epsilon)**2)
+
 if __name__ =="__main__":
 
-    
+    # operational parameters
+    D_knudsenEff = np.array([2.8e-5, 9.4e-6])
+    D_binaryEff = np.array([[0., 8.e-4], [8.e-4, 0.]])
+    i = 24999.998
+    w = np.array([wH2 := 0.03148458, 1 - wH2])
+
+
     # universal constants
     T = 700 + 273.15
     P = ct.one_atm
@@ -124,21 +123,34 @@ if __name__ =="__main__":
  
     # gas variables
     M = np.array([2e-3, 18e-3])
-    w = np.array([wH2 := 0.09483096, 1 - wH2])
     x = w / M / np.sum(w / M)
     c_ch = x * cT
     mu = np.array([1.84e-5, 3.26e-5])    # dynamic visosities at 600°C
     muMix = (c_ch*mu).sum()                # dynamic for the mix
 
-    # operational parameters
-    D_knudsenEff = np.array([9.4e-6, 2.8e-5])
-    D_binaryEff = np.array([[0., 8.e-4], [8.e-4, 0.]])
-    i = 15468.
-    dgm = DustyGasModelZhou(epsilon, tau, rp, c_ch, M, mu, i, dEle, T, 
+    Bg = permeabilityFactorBg(epsilon, tau, rp)
+    dgm = DustyGasModelZhou(Bg, c_ch, M, mu, i, dEle, T, 
                             D_binaryEff, D_knudsenEff)
     
     DGM_kl = dgm.calculate_D_DGM()
     x_tpb, P_tpb = dgm.solveDGM()
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
 # muss neu berechnet werden
 
@@ -208,11 +220,3 @@ if __name__ =="__main__":
         
     
     
-    
-
-
-
-
-
-
-
