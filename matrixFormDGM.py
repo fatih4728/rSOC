@@ -27,62 +27,70 @@ class DustyGasModelZhou:
         self.z = L
         self.T = T
         self.cT = c_ch.sum()
-        self.x = c_ch/c_ch.sum()
+        self.x_ch = c_ch/c_ch.sum()
         self.N = 2
         self.D_binaryEff = D_binaryEff
         self.D_knudsenEff = D_knudsenEff
         self.Bg = Bg
                 
 
-    def calculate_D_DGM(self):
+    def calculate_D_DGM(self, x_ch):
         H = np.zeros((self.N, self.N))
         sumTerm = 0.
         for k in range(self.N):
             for l in range(self.N):
                 for j in range(self.N):
                     if j != k:
-                        sumTerm += self.x[j] / self.D_binaryEff[k, j]
+                        sumTerm += x_ch[j] / self.D_binaryEff[k, j]
                 if k == l:
                     H[k, l] = ((1/self.D_knudsenEff[k] + sumTerm))
                 else:
-                    H[k, l] = -self.x[k] / self.D_binaryEff[k, l]
+                    H[k, l] = -x_ch[k] / self.D_binaryEff[k, l]
                 sumTerm = 0.
         return inv(H)
     
     # define the functioin
-    def funcZhou(self, x, P, DGM_kl):
-        X1_tpb, X2_tpb, dp = x
+    def funcZhou(self, x, P, DGM_kl, dz, c_ch):
+        c1_tpb, c2_tpb, dp = x
         D_knudsenEff = self.D_knudsenEff
-        X_ch = self.c_ch
-        dz = self.z
         Bg = self.Bg
         muMix = self.muMix
         J = self.J
         
-        f1 = ( -J[0] - (DGM_kl[0, 0] * (X1_tpb - X_ch[0]) / dz 
-                        + DGM_kl[0, 1] * (X2_tpb - X_ch[1]) / dz) -
-              (DGM_kl[0, 0]*X_ch[0]/D_knudsenEff[0] + 
-               DGM_kl[0, 1]*X_ch[1]/D_knudsenEff[1])
+        f1 = ( -J[0] - (DGM_kl[0, 0] * (c1_tpb - c_ch[0]) / dz 
+                        + DGM_kl[0, 1] * (c2_tpb - c_ch[1]) / dz) -
+              (DGM_kl[0, 0]*c_ch[0]/D_knudsenEff[0] + 
+               DGM_kl[0, 1]*c_ch[1]/D_knudsenEff[1])
               * Bg / muMix * dp/dz)
-        f2 = ( -J[1] - (DGM_kl[1, 0] * (X1_tpb - X_ch[0]) / dz 
-                        + DGM_kl[1, 1] * (X2_tpb - X_ch[1]) / dz) -
-              (DGM_kl[1, 0]*X_ch[0]/D_knudsenEff[0] + 
-               DGM_kl[1, 1]*X_ch[1]/D_knudsenEff[1])
+        f2 = ( -J[1] - (DGM_kl[1, 0] * (c1_tpb - c_ch[0]) / dz 
+                        + DGM_kl[1, 1] * (c2_tpb - c_ch[1]) / dz) -
+              (DGM_kl[1, 0]*c_ch[0]/D_knudsenEff[0] + 
+               DGM_kl[1, 1]*c_ch[1]/D_knudsenEff[1])
               * Bg / muMix * dp/dz)
-        f3 = (P + dp)/R/T  - X1_tpb - X2_tpb
+        f3 = (P + dp)/R/T  - c1_tpb - c2_tpb
         return np.array([f1, f2, f3])
 
 
     def solveDGM(self):
-        DGM_kl = self.calculate_D_DGM()
-        P = ct.one_atm
-        c1, c2, dp_zhou = fsolve(self.funcZhou, 
-                                 [cT*0.1, cT*0.9, 10000], 
-                                  args = (P, DGM_kl)
-                                  )
-        x_zhou = np.array([c1, c2]) / cT
+        x_ch = self.x_ch
+        DGM_kl = self.calculate_D_DGM(x_ch)
+        P_zhou = ct.one_atm
+        i = 50
+        delta_z = np.zeros((i)) + self.z / i
+        c_ch = self.c_ch
+        for dz in delta_z:
+            c1, c2, dp_zhou = fsolve(self.funcZhou, 
+                                     [cT*0.1, cT*0.9, 1000], 
+                                      args = (P_zhou, DGM_kl, dz, c_ch)
+                                      )
+            c_ch = np.array([c1, c2])
+            # print(dp_zhou)
+            P_zhou += dp_zhou
+            x_ch = c_ch / P_zhou * R * T
+            DGM_kl = self.calculate_D_DGM(x_ch)
+
+        x_zhou = np.array([c1, c2]) / P_zhou * R*T
         w_zhou = x_zhou * M / np.sum(x_zhou * M)
-        P_zhou = P + dp_zhou
         print(f'Zhou Compostion by weight @tpb \t[H2, H20] is {w_zhou}')
         print(f'The total pressure is {P_zhou*1e-5:.4} bar')
         return x_zhou, P_zhou
@@ -103,8 +111,8 @@ if __name__ =="__main__":
     # operational parameters
     D_knudsenEff = np.array([2.8e-5, 9.4e-6])
     D_binaryEff = np.array([[0., 8.e-4], [8.e-4, 0.]])
-    i = 24999.998
-    w = np.array([wH2 := 0.03148458, 1 - wH2])
+    i = 1369.7155
+    w = np.array([wH2 := 0.09483096, 1 - wH2])
 
 
     # universal constants
@@ -115,8 +123,8 @@ if __name__ =="__main__":
     cT = P/R/T
 
     # geometry
-    epsilon = 0.3       # porosity of the electrode (affects mass balance; smaller -> worse)
-    tau = 5.            # tortuosity of the electrode
+    epsilon = 0.54       # porosity of the electrode (affects mass balance; smaller -> worse)
+    tau = 4.81            # tortuosity of the electrode
     rp = 5.e-7          # radius of the pores (affects mass balance; smaller -> worse)
     dEle = 200e-6       # thickness of the electrode (affects mass balance a lot; bigger -> worse)
     A = 100             # area in cm²
@@ -132,7 +140,7 @@ if __name__ =="__main__":
     dgm = DustyGasModelZhou(Bg, c_ch, M, mu, i, dEle, T, 
                             D_binaryEff, D_knudsenEff)
     
-    DGM_kl = dgm.calculate_D_DGM()
+    # DGM_kl = dgm.calculate_D_DGM()
     x_tpb, P_tpb = dgm.solveDGM()
     
     
