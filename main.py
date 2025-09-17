@@ -15,17 +15,21 @@ def w2x(w, M):
     return x / x.sum()
 
 import numpy as np
-from DustyGasModel import DustyGasModel
-from DustyGasModel import calculateMolarFlux
+from matrixFormDGM import DustyGasModelZhou
+from matrixFormDGM import permeabilityFactorBg
+from matrixFormDGM import calculateMolarFlux, x2w, w2x
 from controlVolume import ControlVolume
 from CoolProp.CoolProp import PropsSI
 
+# %% Parameters %%
+
 # universal constants
-T = 800 + 273.15        # operating temperature of the soc
+T = 700 + 273.15        # operating temperature of the soc
 P = 101325.0          # operating pressure of the soc
 F = 96485.33212331001          # faraday constant
 R = 8.314462618153241     # import universal gas constant
-i = 2.499                  # current density in A/cm²
+i = np.array([1369.7155, 15468.857, 24999.998])
+i = i[2]
 
 
 # geometry
@@ -34,66 +38,69 @@ tau = 4.81            # tortuosity of the electrode
 dp = 2.7e-6
 rp = 1.5e-7          # radius of the pores (affects mass balance; smaller -> worse)
 dEle = 200e-6       # thickness of the electrode (affects mass balance a lot; bigger -> worse)
-A = 1.1             # area in cm²
+A = 1.1e-4             # area in cm²
 
 # gas variables [H2, H2O]
-M = np.array([2e-3, 18e-3]) # molar weights of H2, H2O
-# wC = np.array([0.9, 0.1])
-# xC = w2x(wC, M)
-xC = np.array([0.5, 0.5])      # the molar fraction at the channel
-XC = xC*P/R/T                     # the molar concentration
-VdotFuel = 140 *1e-6 / 60  # volume flow (mL/min) in m³/s
-# VdotAir = 550 *1e-6 / 60   # volume flow in m³/s
-Tflow = 150 + 273.15       # Temperature of the volume flows in K
+M = np.array([2e-3, 18e-3])   
+cT = P/R/T 
+w = np.array([wH2 := 0.042427, 1 - wH2])
+x_ch = w2x(w, M)
+c_ch = x_ch * cT
 
-# viscosity of the mix
-mu = np.array([1.84e-5, 3.26e-5])    # dynamic visosities at 600°C
+
+# Diffusion Coefficients
+D_knudsenEff = np.array([2.8e-5, 9.4e-6])
+D_binaryEff = np.array([[0., 8.e-4], [8.e-4, 0.]])
+
+# %% Control volume
+
+# concentration at entrance
+x_in = np.array([0.5, 0.5])
+
+# flows
+J = calculateMolarFlux(i, A)
+VdotFuel = 140 *1e-6 / 60  
+Tflow = 150 + 273.15 
+
+# density of the mix
 rhoH2 = PropsSI('D', 'P', P, 'T', Tflow, 'H2')
 rhoH2O = PropsSI('D', 'P', P, 'T', Tflow, 'H2O')
 rho = np.array([rhoH2, rhoH2O])
-
-J = calculateMolarFlux(i, A)
-
-# create the dusty gas model object
-dgm = DustyGasModel(porosity = epsilon, 
-                    tortuosity = tau, 
-                    poreRadius = rp, 
-                    c1 = XC, 
-                    M = M,
-                    mu = mu, 
-                    J = J,
-                    L = dEle,
-                    T = T)
-# J = calculateMolarFlux(i, A)
-
-# get the values of the DGM diffusion
-xM, dp, addInfo = dgm.calculateMoleFraction() 
-
-
+# Get viscosity of the mix
+muH2 = PropsSI('V', 'P', P, 'T', Tflow, 'H2')
+muH2O = PropsSI('V', 'P', P, 'T', Tflow, 'H2O')
+mu = np.array([muH2, muH2O])    
 
 
 # calculate the values of the control volume
-mDotIn = VdotFuel * xC * rho
+mDotIn = VdotFuel * x_in * rho
 mDotDiff = calculateMolarFlux(i, A) * M
-controlVolume = ControlVolume(mDotIn, mDotDiff, xC)
-mDotOut, xOut, Uf = controlVolume.massBalance()
-p_tpb = P + dp
+controlVolume = ControlVolume(mDotIn, mDotDiff, x2w(x_in, M))
+# this has to give same values to Colin
+mDotOut, w_cv, Uf = controlVolume.massBalance()     
+x_cv = w2x(w_cv, M)
+c_cv = x_cv * cT    # the total concentration may differ though
 
 
-wC = x2w(xC, M)
-wM = x2w(xM, M)
-wOut = x2w(xOut, M)
-wC_avg = wC * 0.5 + wOut * 0.5
+# %% Dusty Gas Model %%
 
-if dp < 1.e5:
-    print(f"i = {i*1e4:.4f}")
-    print(f"p_tpb = {p_tpb*1e-5:.5} bar ")
-    print(f"nH2 = {J[0]:.3}")
-    print("w   \t channel \t tpb")
-    print(f"H2  \t {wC[0]:.5}  \t {wM[0]:.5}")
-    print(f"H2O \t {wC[1]:.5}  \t {wM[1]:.5}")
-    # print(f"The sum of the molar fractions is {xM.sum():.4}")
-    # print(f"The utilization factor is {Uf*100:.2f} %")
+Bg = permeabilityFactorBg(epsilon, tau, rp)
+dgm = DustyGasModelZhou(Bg, c_cv, M, mu, i, dEle, T, 
+                        D_binaryEff, D_knudsenEff)
+
+x_tpb, P_tpb = dgm.solveDGM()
+
+w_zhou = x2w(x_tpb, M)
+print(f'w [H2, H20] @channel is \t{w_cv}')
+print(f'w [H2, H20] @tpb is     \t{w_zhou}')
+print(f'The total pressure is {P_tpb*1e-5:.4} bar')
+
+
+
+
+
+
+
 
 
 

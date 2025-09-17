@@ -11,6 +11,7 @@ import numpy as np
 import cantera as ct
 from scipy.optimize import fsolve
 from numpy.linalg import inv
+import matplotlib.pyplot as plt
 
 
 class DustyGasModelZhou:
@@ -32,6 +33,8 @@ class DustyGasModelZhou:
         self.D_binaryEff = D_binaryEff
         self.D_knudsenEff = D_knudsenEff
         self.Bg = Bg
+        self.R = ct.gas_constant*1.e-3
+        self.P = ct.one_atm
                 
 
     def calculate_D_DGM(self, x_ch):
@@ -67,7 +70,7 @@ class DustyGasModelZhou:
               (DGM_kl[1, 0]*c_ch[0]/D_knudsenEff[0] + 
                DGM_kl[1, 1]*c_ch[1]/D_knudsenEff[1])
               * Bg / muMix * dp/dz)
-        f3 = (P + dp)/R/T  - c1_tpb - c2_tpb
+        f3 = (P + dp)/self.R/self.T  - c1_tpb - c2_tpb
         return np.array([f1, f2, f3])
 
 
@@ -75,24 +78,25 @@ class DustyGasModelZhou:
         x_ch = self.x_ch
         DGM_kl = self.calculate_D_DGM(x_ch)
         P_zhou = ct.one_atm
-        i = 50
+        i = 10
+        xElyte = []
         delta_z = np.zeros((i)) + self.z / i
         c_ch = self.c_ch
         for dz in delta_z:
             c1, c2, dp_zhou = fsolve(self.funcZhou, 
-                                     [cT*0.1, cT*0.9, 1000], 
+                                     [self.cT*0.1, self.cT*0.9, 1000], 
                                       args = (P_zhou, DGM_kl, dz, c_ch)
                                       )
             c_ch = np.array([c1, c2])
             # print(dp_zhou)
             P_zhou += dp_zhou
-            x_ch = c_ch / P_zhou * R * T
+            x_ch = c_ch / P_zhou * self.R * self.T
+            xElyte.append(x_ch)
+            # print(x_ch.sum())
             DGM_kl = self.calculate_D_DGM(x_ch)
 
-        x_zhou = np.array([c1, c2]) / P_zhou * R*T
-        w_zhou = x_zhou * M / np.sum(x_zhou * M)
-        print(f'Zhou Compostion by weight @tpb \t[H2, H20] is {w_zhou}')
-        print(f'The total pressure is {P_zhou*1e-5:.4} bar')
+        x_zhou = np.array([c1, c2]) / P_zhou * self.R*self.T
+        
         return x_zhou, P_zhou
 
 
@@ -106,13 +110,42 @@ def permeabilityFactorBg(epsilon, tau, rp):
     # 5.37e-17
     return  (epsilon**3 * (2*rp)**2 / 72 / tau / (1 - epsilon)**2)
 
+def calculateMolarFlux(i, A):
+    """
+    This function calculates the anode molar flux of a SOC
+    Only valid for pure hydrogen and steam
+
+    Parameters
+    ----------
+    i : float
+        current density in A/cm².
+    A : Area
+        Area in cm².
+
+    Returns
+    -------
+    J : Array
+        molar flux of H2 and H2O.
+
+    """
+    F = 96485.33212331001          # faraday constant
+    ndotH2 = i/F/2*A
+    ndotH2O = ndotH2
+    return np.array([-ndotH2, ndotH2O])
+
+def x2w(x, M):
+    return x * M / np.sum(x*M)
+
+def w2x(w, M):
+    return w / M / np.sum(w / M)
+
 if __name__ =="__main__":
 
     # operational parameters
     D_knudsenEff = np.array([2.8e-5, 9.4e-6])
     D_binaryEff = np.array([[0., 8.e-4], [8.e-4, 0.]])
-    i = 1369.7155
-    w = np.array([wH2 := 0.09483096, 1 - wH2])
+    i = 24999.998
+    w = np.array([wH2 := 0.031418, 1 - wH2])
 
 
     # universal constants
@@ -131,20 +164,27 @@ if __name__ =="__main__":
  
     # gas variables
     M = np.array([2e-3, 18e-3])
-    x = w / M / np.sum(w / M)
+    x = w2x(w, M)
     c_ch = x * cT
     mu = np.array([1.84e-5, 3.26e-5])    # dynamic visosities at 600°C
-    muMix = (c_ch*mu).sum()                # dynamic for the mix
 
     Bg = permeabilityFactorBg(epsilon, tau, rp)
+    Bg = 5.3e-17
     dgm = DustyGasModelZhou(Bg, c_ch, M, mu, i, dEle, T, 
                             D_binaryEff, D_knudsenEff)
     
     # DGM_kl = dgm.calculate_D_DGM()
-    x_tpb, P_tpb = dgm.solveDGM()
+    x_tpb, P_tpb, xElyte = dgm.solveDGM()
     
     
-    
+    plt.plot(np.linspace(0., dEle*1e6, len(xElyte)), xElyte)
+    plt.xlabel("z / µm")
+    plt.ylabel("x / [mol/mol]")
+    plt.legend(["H2", "H2O"])
+    w_zhou = x2w(x_tpb, M)
+    print(f'Zhou Compostion by weight @tpb \t[H2, H20] is {w_zhou}')
+    print(f'The total pressure is {P_tpb*1e-5:.4} bar')
+
     
     
     

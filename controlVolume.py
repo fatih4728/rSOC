@@ -15,21 +15,29 @@ from CoolProp.CoolProp import PropsSI
 # %%
 
 class ControlVolume:
-    def __init__(self, mDotIn, mDotDiff, xIn):
+    def __init__(self, mDotIn, mDotDiff, wIn):
         self.mDotIn = mDotIn
         self.mDotDiff = mDotDiff
-        self.xIn = xIn
+        self.xIn = wIn
     
     def massBalance(self):
         mDotOut = self.mDotDiff + self.mDotIn
+        xInH2, xInH2O = self.xIn
         if mDotOut[0] < 0 or mDotOut[1] < 0:
             print("the outlet is not outletting")
-        xOut = mDotOut / mDotOut.sum()
-        Uf = 1 - xOut[0]/self.xIn[0]
+        # xOut = mDotOut / mDotOut.sum()
+        # xOutH2 = ((xInH2*self.mDotIn.sum()+xInH2*self.mDotDiff.sum()) /
+        #         (self.mDotIn.sum() + self.mDotDiff.sum()))
+        # # xOutH2O = ((xInH2O*self.mDotIn.sum()+xInH2O*self.mDotDiff.sum()) /
+        #         (self.mDotIn.sum() + self.mDotDiff.sum()))
+        mDotH2_out = abs(self.mDotIn[0]) - abs(self.mDotDiff[0])
+        xOutH2 = mDotH2_out/mDotOut.sum()
+        
+        Uf = 1 - xOutH2/self.xIn[0]
         if Uf > 1.0:
             print("Not enough H2 to support operation")
             print("increase volume flow, or decrease current density or area")
-        return mDotOut, xOut, Uf
+        return mDotOut, np.array([xOutH2, 1-xOutH2]), Uf
 
 
 # %%
