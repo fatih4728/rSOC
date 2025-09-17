@@ -38,6 +38,20 @@ class DustyGasModelZhou:
                 
 
     def calculate_D_DGM(self, x_ch):
+        """
+        Generate the DGM Matrix
+
+        Parameters
+        ----------
+        x_ch : float
+            Molar concentration of the species at channel side.
+
+        Returns
+        -------
+        matrix
+            The DGM matrix, which is the inverse of H.
+
+        """
         H = np.zeros((self.N, self.N))
         sumTerm = 0.
         for k in range(self.N):
@@ -54,6 +68,31 @@ class DustyGasModelZhou:
     
     # define the functioin
     def funcZhou(self, x, P, DGM_kl, dz, c_ch):
+        """
+        This is the function that will be solved. The equation for the
+        DGM so to speak. The three boundary conditions are (1) and (2) 
+        that the flux of H2 and H2O are respected and (3) that the gasses
+        add up to a total concentration.
+
+        Parameters
+        ----------
+        x : TYPE
+            DESCRIPTION.
+        P : TYPE
+            DESCRIPTION.
+        DGM_kl : TYPE
+            DESCRIPTION.
+        dz : TYPE
+            DESCRIPTION.
+        c_ch : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
+
+        """
         c1_tpb, c2_tpb, dp = x
         D_knudsenEff = self.D_knudsenEff
         Bg = self.Bg
@@ -174,13 +213,9 @@ if __name__ =="__main__":
                             D_binaryEff, D_knudsenEff)
     
     # DGM_kl = dgm.calculate_D_DGM()
-    x_tpb, P_tpb, xElyte = dgm.solveDGM()
+    x_tpb, P_tpb = dgm.solveDGM()
     
     
-    plt.plot(np.linspace(0., dEle*1e6, len(xElyte)), xElyte)
-    plt.xlabel("z / µm")
-    plt.ylabel("x / [mol/mol]")
-    plt.legend(["H2", "H2O"])
     w_zhou = x2w(x_tpb, M)
     print(f'Zhou Compostion by weight @tpb \t[H2, H20] is {w_zhou}')
     print(f'The total pressure is {P_tpb*1e-5:.4} bar')
