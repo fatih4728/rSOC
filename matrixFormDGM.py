@@ -76,21 +76,21 @@ class DustyGasModelZhou:
 
         Parameters
         ----------
-        x : TYPE
-            DESCRIPTION.
-        P : TYPE
-            DESCRIPTION.
-        DGM_kl : TYPE
-            DESCRIPTION.
-        dz : TYPE
-            DESCRIPTION.
-        c_ch : TYPE
-            DESCRIPTION.
+        x : Array
+            This is, what will be solved for.
+        P : float
+            Total pressure.
+        DGM_kl : Matrix
+            The matrix from the function.
+        dz : float
+            the length orthogonal to the electrolyte, that will be passed.
+        c_ch : float
+            concentration in the channel side increment.
 
         Returns
         -------
-        TYPE
-            DESCRIPTION.
+        array
+            the electrolyte side concentration and the pressure.
 
         """
         c1_tpb, c2_tpb, dp = x
@@ -109,7 +109,7 @@ class DustyGasModelZhou:
               (DGM_kl[1, 0]*c_ch[0]/D_knudsenEff[0] + 
                DGM_kl[1, 1]*c_ch[1]/D_knudsenEff[1])
               * Bg / muMix * dp/dz)
-        f3 = (P + dp)/self.R/self.T  - c1_tpb - c2_tpb
+        f3 = (P + dp*1.)/self.R/self.T  - c1_tpb - c2_tpb
         return np.array([f1, f2, f3])
 
 
@@ -117,8 +117,8 @@ class DustyGasModelZhou:
         x_ch = self.x_ch
         DGM_kl = self.calculate_D_DGM(x_ch)
         P_zhou = ct.one_atm
-        i = 10
-        xElyte = []
+        dp_sum = 0.
+        i = 1000
         delta_z = np.zeros((i)) + self.z / i
         c_ch = self.c_ch
         for dz in delta_z:
@@ -127,16 +127,15 @@ class DustyGasModelZhou:
                                       args = (P_zhou, DGM_kl, dz, c_ch)
                                       )
             c_ch = np.array([c1, c2])
-            # print(dp_zhou)
-            P_zhou += dp_zhou
-            x_ch = c_ch / P_zhou * self.R * self.T
-            xElyte.append(x_ch)
-            # print(x_ch.sum())
+            P_zhou += dp_zhou*1.
+            dp_sum += dp_zhou 
+            # x_ch = c_ch / P_zhou * self.R * self.T
+            x_ch = c_ch / ct.one_atm * self.R * self.T
             DGM_kl = self.calculate_D_DGM(x_ch)
 
         x_zhou = np.array([c1, c2]) / P_zhou * self.R*self.T
         
-        return x_zhou, P_zhou
+        return x_zhou, P_zhou, dp_sum
 
 
 def permeabilityFactorBg(epsilon, tau, rp):
@@ -213,14 +212,17 @@ if __name__ =="__main__":
                             D_binaryEff, D_knudsenEff)
     
     # DGM_kl = dgm.calculate_D_DGM()
-    x_tpb, P_tpb = dgm.solveDGM()
+    x_tpb, P_tpb, dp_sum = dgm.solveDGM()
     
     
     w_zhou = x2w(x_tpb, M)
-    print(f'Zhou Compostion by weight @tpb \t[H2, H20] is {w_zhou}')
-    print(f'The total pressure is {P_tpb*1e-5:.4} bar')
-
-    
+    # print(f'Zhou Compostion by weight @tpb \t[H2, H20] is {w_zhou}')
+    # %%
+    print(f'Compostion by weight @channel \t[H2, H20] is {w}')
+    print(f'Compostion by weight @tpb     \t[H2, H20] is {w_zhou}')
+    # print(f'The pressure difference is {dp_total:.5} Pa,')
+    print(f'the total pressure is {(P_tpb)*1e-5:.5} bar')
+     
     
     
     
@@ -285,12 +287,7 @@ if __name__ =="__main__":
     # x_tpb = np.array([X1_tpb, X2_tpb]) / XT
     # w_tpb = x_tpb * M / np.sum(x_tpb * M)
     
-    # %%
-    # print(f'Compostion by weight @channel \t[H2, H20] is {w}')
-    # print(f'Compostion by weight @tpb     \t[H2, H20] is {w_tpb}')
-    # # print(f'The pressure difference is {dp_total:.5} Pa,')
-    # print(f'the total pressure is {(P + dp)*1e-5:.5} bar')
-        
+       
         
         
         
