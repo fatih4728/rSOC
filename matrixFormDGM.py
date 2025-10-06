@@ -135,7 +135,7 @@ class DustyGasModelZhou:
 
         x_zhou = np.array([c1, c2]) / P_zhou * self.R*self.T
         
-        return x_zhou, P_zhou, dp_sum
+        return x_zhou, P_zhou
 
 
 def permeabilityFactorBg(epsilon, tau, rp):
@@ -212,7 +212,7 @@ if __name__ =="__main__":
                             D_binaryEff, D_knudsenEff)
     
     # DGM_kl = dgm.calculate_D_DGM()
-    x_tpb, P_tpb, dp_sum = dgm.solveDGM()
+    x_tpb, P_tpb = dgm.solveDGM()
     
     
     w_zhou = x2w(x_tpb, M)

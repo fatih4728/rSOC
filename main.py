@@ -7,16 +7,9 @@ calling the class test
 @author: smfadurm
 """
 
-def x2w(x, M):
-    w = x * M
-    return w / w.sum()
-def w2x(w, M):
-    x = w / M
-    return x / x.sum()
 
 import numpy as np
-from matrixFormDGM import DustyGasModelZhou
-from matrixFormDGM import permeabilityFactorBg
+from matrixFormDGM import DustyGasModelZhou, permeabilityFactorBg
 from matrixFormDGM import calculateMolarFlux, x2w, w2x
 from controlVolume import ControlVolume
 from CoolProp.CoolProp import PropsSI
