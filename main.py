@@ -7,7 +7,7 @@ calling the class test
 @author: smfadurm
 """
 
-
+import matplotlib.pyplot as plt
 import numpy as np
 from DustyGasModel import DustyGasModelZhou, permeabilityFactorBg
 from DustyGasModel import calculateMolarFlux, x2w, w2x
@@ -55,7 +55,7 @@ D_binaryEff = np.array([[0., D_Fuller(T)], [D_Fuller(T), 0.]]) *epsilon/tau
 # parameters for the object Echem
 
 etaAct = np.linspace(0., 1.0, 10)
-etaAct = 0.56
+etaAct = 0.5
 k_c3 = 0.2e-16
 l_tpb = 10e4        # I will have to check this value
 x_tpb = np.array([0.1, 0.9])
@@ -81,7 +81,8 @@ OCV = U_rev - eta_leak
 # %% Control volume
 
 # concentration at entrance
-x_in = np.array([0.5, 0.5])
+x_in = np.array([0.5, 1 - 0.5])
+w_in = x2w(x_in, M)
 
 # flows
 J = calculateMolarFlux(i, A)
@@ -123,25 +124,28 @@ if x_tpb[0] < 0:
 
 
 w_zhou = x2w(x_tpb, M)
-print(f'w [H2, H20] @channel is \t{w_cv}')
-print(f'w [H2, H20] @tpb is     \t{w_zhou}')
+# print(f'w[H2, H20] @entrance is \t{w_in}')
+# print(f'w[H2, H20] @channel is \t{w_cv}')
+# print(f'w[H2, H20] @tpb is     \t{w_zhou}')
 print(f'The total pressure is {P_tpb*1e-5:.4} bar')
 
-
+plt.figure()
+plt.title('concentration plot')
+plt.plot(['input', 'channel', 'tpb'], [w_in[0], w_cv[0], w_zhou[0]], 'k--o')
+plt.ylim([0, 0.11])
 
 # %%
-voltage = OCV - etaAct
-import matplotlib.pyplot as plt
+# voltage = OCV - etaAct
 
-plt.figure()
-plt.title('UV-Curve @ 800°C')
-plt.plot(Echem.currentDensity(), 
-         voltage, 'ro' ,label = '$x_{H2}$ = ' + str(xH2))
-plt.xlim([0, 5.])
-plt.ylim([0, 1.3])
-plt.xlabel('current / A/cm²')
-plt.ylabel('voltage / V')
-plt.legend()
+# plt.figure()
+# plt.title('UV-Curve @ 800°C')
+# plt.plot(Echem.currentDensity(), 
+#          voltage, 'ro' ,label = '$x_{H2}$ = ' + str(xH2))
+# plt.xlim([0, 5.])
+# plt.ylim([0, 1.3])
+# plt.xlabel('current / A/cm²')
+# plt.ylabel('voltage / V')
+# plt.legend()
 
 
 
