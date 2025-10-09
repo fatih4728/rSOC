@@ -10,6 +10,7 @@ In this model I will try to recreate the SOFC model of Colin
 import numpy as np
 import matplotlib.pyplot as plt
 from CoolProp.CoolProp import PropsSI
+import cantera as ct
 
 # %%
 class Echem:
@@ -182,26 +183,13 @@ if __name__=="__main__":
     
     #################################################################
     
-    # %%
-    # The enthalpy and entropy
-    H2 = np.array([22.9e3, 168.24])
-    O2 = np.array([25.26e3, 245.93])
-    H2O = np.array([-212.75e3, 235.57])
-    
-    dG_R = ReactionH2O2_H2O(H2, O2, H2O)
 
-    
-    H2_S = PropsSI('Smolar', 'P', P, 'T', T, 'H2')
-    O2_S = PropsSI('Smolar', 'P', P, 'T', T, 'O2')
-    H2O_S = PropsSI('Smolar', 'P', P, 'T', T, 'H2O')
+    # %%  Automatically calling the thermodynamic states
+    from getHS import get_thermo_properties_dict
+    species_list = ['H2', 'O2', 'H2O']  
+    TD = get_thermo_properties_dict(species_list, T, P)
+    dG_R = TD['H2O']['G'] - TD['H2']['G'] - TD['O2']['G'] * 0.5
 
-    H2 = np.array([22.9e3, H2_S])
-    O2 = np.array([25.26e3, O2_S])
-    H2O = np.array([-212.75e3, H2O_S])
-
-    dG_R2 = ReactionH2O2_H2O(H2, O2, H2O)
-
-    
     
     # %%
             
