@@ -177,6 +177,51 @@ def x2w(x, M):
 def w2x(w, M):
     return w / M / np.sum(w / M)
 
+def D_Knudsen(rp, T, M):
+    """
+    Source is Transport Phenomena in materials processing.
+    !The equation works if rp is given in m. Might be a mistake hidden!
+
+    Parameters
+    ----------
+    rp : float
+        pore radius / cm.
+    T : float
+        temperature / K.
+    M : float
+        molar mass / g/mol.
+
+    Returns
+    -------
+    float
+        Knudsen Diffusion Coefficient.
+
+    """
+    return 9700*rp*(T/M)**0.5 *1e-2
+
+def D_Fuller(T, P = 1.):
+    """    
+    Fuller equation for the binary diffusion coefficient
+
+    Parameters
+    ----------
+    T : float
+        Temperature / K.
+    P : float, optional
+        Pressure / atm. The default is 1..
+
+    Returns
+    -------
+    Binary diffusion coefficient.
+
+    """
+    M_A = 2.01588
+    M_B = 18.01528
+    v_A = 7.07
+    v_B = 12.7
+    return (1e-3*T**1.75*(1/M_A+1/M_B)**0.5/
+            (P*(v_A**(1/3)+v_B**(1/3))**2)) * 1e-4
+
 if __name__ =="__main__":
 
     # operational parameters

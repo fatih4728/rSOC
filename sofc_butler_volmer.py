@@ -158,171 +158,184 @@ def K(dHS):
     return np.exp(-dH/R/T + dS/R)
 
 # %%
-# universal constants
 
-T = 800 + 273.15        # operating temperature of the soc
-P = 101325.0          # operating pressure of the soc
-F = 96485.33212331001          # faraday constant
-R = 8.314462618153241     # import universal gas constant
+if __name__=="__main__":
+    
+    # universal constants
+    
+    T = 800 + 273.15        # operating temperature of the soc
+    P = 101325.0          # operating pressure of the soc
+    F = 96485.33212331001          # faraday constant
+    R = 8.314462618153241     # import universal gas constant
+    
+    # gasses 
+    xH2 = 0.9
+    xH2O = 1 - xH2 
+    xO2 = 0.21 
+    pH2 = xH2 * P
+    pH2O = xH2O * P
+    pO2 = xO2 * P
+    
+    # Vdot_fuel = 140 *1e-6 / 60  # volume flow in m³/s
+    # Vdot_air = 550 *1e-6 / 60   # volume flow in m³/s
+    # T_flow = 150 + 273.15       # Temperature of the volume flows in K
+    
+    #################################################################
+    
+    # %%
+    # The enthalpy and entropy
+    H2 = np.array([22.9e3, 168.24])
+    O2 = np.array([25.26e3, 245.93])
+    H2O = np.array([-212.75e3, 235.57])
+    
+    dG_R = ReactionH2O2_H2O(H2, O2, H2O)
 
-# gasses 
-xH2 = 0.9
-xH2O = 1 - xH2 
-xO2 = 0.21 
-pH2 = xH2 * P
-pH2O = xH2O * P
-pO2 = xO2 * P
+    
+    H2_S = PropsSI('Smolar', 'P', P, 'T', T, 'H2')
+    O2_S = PropsSI('Smolar', 'P', P, 'T', T, 'O2')
+    H2O_S = PropsSI('Smolar', 'P', P, 'T', T, 'H2O')
 
-# Vdot_fuel = 140 *1e-6 / 60  # volume flow in m³/s
-# Vdot_air = 550 *1e-6 / 60   # volume flow in m³/s
-# T_flow = 150 + 273.15       # Temperature of the volume flows in K
+    H2 = np.array([22.9e3, H2_S])
+    O2 = np.array([25.26e3, O2_S])
+    H2O = np.array([-212.75e3, H2O_S])
 
-#################################################################
+    dG_R2 = ReactionH2O2_H2O(H2, O2, H2O)
 
-# %%
-# The enthalpy and entropy
-H2 = np.array([22.9e3, 168.24])
-O2 = np.array([25.26e3, 245.93])
-H2O = np.array([-212.75e3, 235.57])
-H2SI = PropsSI('Smolar', 'P', P, 'T', T, 'H2')
-O2SI = PropsSI('Smolar', 'P', P, 'T', T, 'O2')
-H2OSI = PropsSI('Smolar', 'P', P, 'T', T, 'H2O')
-dG_R = ReactionH2O2_H2O(H2, O2, H2O)
-
-
-# %%
-        
-# adsorption enthalpies and entropies
-Ni = np.array([0.0e3, 0.0])
-HNi = np.array([-31.19e3, 41.14])
-YSZ = np.array([0.0e3, 0.0])
-O2YSZ = np.array([-85.6e3, 139.6])
-OHYSZ = np.array([-165.23e3, 175.1])
-H2OYSZ = np.array([-254.45e3, 54.34])
-OxYSZ = np.array([-85.6e3, 139.6])
-VoYSZ = np.array([0.0e3, 0.0])
-
-# reaction 1: H2 + 2 Ni <-> 2H(Ni)
-HS1 = 2*HNi - H2 - 2 *Ni
-K1 = K(HS1)
-# reaction 2: H(ni) + O2-(YSZ) <-> (Ni) + OH-(YSZ) + e-(Ni)
-HS2 = Ni + OHYSZ - HNi - O2YSZ
-K2 = K(HS2)
-# # reaction 3: H(Ni) + OH-(YSZ) <-> (Ni) + H2O(YSZ) + e-(Ni) -- RDS
-HS3 = Ni + H2OYSZ - HNi - OHYSZ
-K3 = K(HS3)
-# # reaction 4: H2O(YSZ) <-> H2O(g) + (YSZ)
-HS4 = H2O + YSZ - H2OYSZ
-K4 = K(HS4)
-# # reaction 5: Ox(YSZ) + (YSZ) <-> O2-(YSZ) + Vö(YSZ)
-HS5 = O2YSZ + VoYSZ - OxYSZ - YSZ
-a = 25
-K5 = K(HS5) / a
-
-# %%
-# Kinetic coefficients
-# i_A = 0.
-# i_A_lim = 1.0
-A = 2.4e-7; B = 3.55; C = 0.144; D = 0.437
-AtoD = np.array([A, B, C, D])
-K1to5 = np.array([K1, K2, K3, K4, K5])
-
-# create the object Echem
-N = 10000
-etaAct = np.linspace(0., 0.0, N)
-# beta3 = 0.5
-k_c3 = 0.2e-16
-l_tpb = 10e4        # I will have to check this value
-Echem = Echem(T, P, xH2, xH2O, xO2, AtoD, etaAct, l_tpb, K1to5)
-
-# calculate the OCV
-U_rev = Echem.calcUrev(dG_R)
-
-eta_leak = Echem.calcLeakVoltage()
-
-OCV = U_rev - eta_leak
-
-
-# %%
-
-xH2_array = np.linspace(0., 1., N)
-
-
-# %%
-# # plot Nickel
-
-# covNi, covH = coveragesNickel(xH2_array)
-covNi, covH = Echem.coveragesNickel(N)
-
-# plt.figure()
-# plt.title('Surface Coverage Ni (p = 1 atm)')
-# plt.plot(xH2_array, covNi, label = r'$\theta$Ni')
-# plt.plot(xH2_array, covH, label = r'$\theta$H(Ni)')
-# plt.xlim([0, 1])
-# plt.ylim([0, 1])
-# plt.xlabel(r'$x_{H2}$ / mol/mol')
-# plt.ylabel('coverage / 1')
-# plt.legend()
-
-# plot YSZ
-covYSZ, covO2m, covH2O, covOHm = Echem.coveragesYSZ(N)
-plt.figure()
-plt.title('Surface Coverage YSZ (p = 1 atm)')
-plt.plot(xH2_array, covYSZ, label = r'$\theta$YSZ')
-plt.plot(xH2_array, covO2m, label = r'$\theta O^{2-}(YSZ)$')
-plt.plot(xH2_array, covH2O, label = r'$\theta H2O(YSZ)$', )
-plt.plot(xH2_array, covOHm, label = r'$\theta OH^{-}(YSZ)$')
-plt.xlim([0, 1])
-plt.ylim([0, 1])
-plt.xlabel(r'$x_{H2}$ / mol/mol')
-plt.ylabel('coverage / 1')
-plt.legend()
-
-
-# why are there two Ea??
-Ea = -np.log(K1*K2*K3*K4/K5)*R*T/2/F  # why not partial pressure?
-
-
-# ## calculation of i3
-voltage = OCV - etaAct
-
-
-# plt.figure()
-# plt.title('UV-Curve @ 800°C')
-# plt.plot(Echem.currentDensity(), 
-#          voltage, label = '$x_{H2}$ = ' + str(xH2))
-# plt.xlim([0, 3.])
-# plt.ylim([0, 1.3])
-# plt.xlabel('current / A/cm²')
-# plt.ylabel('voltage / V')
-# plt.legend()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    
+    
+    # %%
+            
+    # adsorption enthalpies and entropies
+    Ni = np.array([0.0e3, 0.0])
+    HNi = np.array([-31.19e3, 41.14])
+    YSZ = np.array([0.0e3, 0.0])
+    O2YSZ = np.array([-85.6e3, 139.6])
+    OHYSZ = np.array([-165.23e3, 175.1])
+    H2OYSZ = np.array([-254.45e3, 54.34])
+    OxYSZ = np.array([-85.6e3, 139.6])
+    VoYSZ = np.array([0.0e3, 0.0])
+    
+    # reaction 1: H2 + 2 Ni <-> 2H(Ni)
+    HS1 = 2*HNi - H2 - 2 *Ni
+    K1 = K(HS1)
+    # reaction 2: H(ni) + O2-(YSZ) <-> (Ni) + OH-(YSZ) + e-(Ni)
+    HS2 = Ni + OHYSZ - HNi - O2YSZ
+    K2 = K(HS2)
+    # # reaction 3: H(Ni) + OH-(YSZ) <-> (Ni) + H2O(YSZ) + e-(Ni) -- RDS
+    HS3 = Ni + H2OYSZ - HNi - OHYSZ
+    K3 = K(HS3)
+    # # reaction 4: H2O(YSZ) <-> H2O(g) + (YSZ)
+    HS4 = H2O + YSZ - H2OYSZ
+    K4 = K(HS4)
+    # # reaction 5: Ox(YSZ) + (YSZ) <-> O2-(YSZ) + Vö(YSZ)
+    HS5 = O2YSZ + VoYSZ - OxYSZ - YSZ
+    a = 25
+    K5 = K(HS5) / a
+    
+    # %%
+    # Kinetic coefficients
+    # i_A = 0.
+    # i_A_lim = 1.0
+    A = 2.4e-7; B = 3.55; C = 0.144; D = 0.437
+    AtoD = np.array([A, B, C, D])
+    K1to5 = np.array([K1, K2, K3, K4, K5])
+    
+    # create the object Echem
+    N = 10000
+    etaAct = np.linspace(0., 0.0, N)
+    # beta3 = 0.5
+    k_c3 = 0.2e-16
+    l_tpb = 10e4        # I will have to check this value
+    Echem = Echem(T, P, xH2, xH2O, xO2, AtoD, etaAct, l_tpb, K1to5)
+    
+    # calculate the OCV
+    U_rev = Echem.calcUrev(dG_R)
+    
+    eta_leak = Echem.calcLeakVoltage()
+    
+    OCV = U_rev - eta_leak
+    
+    
+    # %%
+    
+    xH2_array = np.linspace(0., 1., N)
+    
+    
+    # %%
+    # # plot Nickel
+    
+    # covNi, covH = coveragesNickel(xH2_array)
+    covNi, covH = Echem.coveragesNickel(N)
+    
+    # plt.figure()
+    # plt.title('Surface Coverage Ni (p = 1 atm)')
+    # plt.plot(xH2_array, covNi, label = r'$\theta$Ni')
+    # plt.plot(xH2_array, covH, label = r'$\theta$H(Ni)')
+    # plt.xlim([0, 1])
+    # plt.ylim([0, 1])
+    # plt.xlabel(r'$x_{H2}$ / mol/mol')
+    # plt.ylabel('coverage / 1')
+    # plt.legend()
+    
+    # plot YSZ
+    covYSZ, covO2m, covH2O, covOHm = Echem.coveragesYSZ(N)
+    # plt.figure()
+    # plt.title('Surface Coverage YSZ (p = 1 atm)')
+    # plt.plot(xH2_array, covYSZ, label = r'$\theta$YSZ')
+    # plt.plot(xH2_array, covO2m, label = r'$\theta O^{2-}(YSZ)$')
+    # plt.plot(xH2_array, covH2O, label = r'$\theta H2O(YSZ)$', )
+    # plt.plot(xH2_array, covOHm, label = r'$\theta OH^{-}(YSZ)$')
+    # plt.xlim([0, 1])
+    # plt.ylim([0, 1])
+    # plt.xlabel(r'$x_{H2}$ / mol/mol')
+    # plt.ylabel('coverage / 1')
+    # plt.legend()
+    
+    
+    # why are there two Ea??
+    Ea = -np.log(K1*K2*K3*K4/K5)*R*T/2/F  # why not partial pressure?
+    
+    
+    # ## calculation of i3
+    voltage = OCV - etaAct
+    print(voltage)
+    
+    # plt.figure()
+    # plt.title('UV-Curve @ 800°C')
+    # plt.plot(Echem.currentDensity(), 
+    #          voltage, label = '$x_{H2}$ = ' + str(xH2))
+    # plt.xlim([0, 3.])
+    # plt.ylim([0, 1.3])
+    # plt.xlabel('current / A/cm²')
+    # plt.ylabel('voltage / V')
+    # plt.legend()
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
 
 
