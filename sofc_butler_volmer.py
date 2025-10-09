@@ -190,6 +190,9 @@ if __name__=="__main__":
     TD = get_thermo_properties_dict(species_list, T, P)
     dG_R = TD['H2O']['G'] - TD['H2']['G'] - TD['O2']['G'] * 0.5
 
+    H2 = np.array([TD['H2']['H'], TD['H2']['S']])
+    O2 = np.array([TD['O2']['H'], TD['O2']['S']])
+    H2O = np.array([TD['H2O']['H'], TD['H2O']['S']])
     
     # %%
             
