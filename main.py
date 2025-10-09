@@ -14,6 +14,7 @@ from matrixFormDGM import calculateMolarFlux, x2w, w2x
 from matrixFormDGM import D_Fuller, D_Knudsen
 from controlVolume import ControlVolume
 from CoolProp.CoolProp import PropsSI
+from electrochemistryAndThermodynamics import ElectrochemicalSystem
 
 # %% Parameters %%
 
@@ -42,9 +43,9 @@ x_ch = w2x(w, M)
 c_ch = x_ch * cT
 
 
-# Diffusion Coefficients
-D_knudsenEff_Colin = np.array([2.8e-5, 9.4e-6])
-D_binaryEff_Colin = np.array([[0., 8.e-4], [8.e-4, 0.]])
+## Diffusion Coefficients
+# D_knudsenEff_Colin = np.array([2.8e-5, 9.4e-6])
+# D_binaryEff_Colin = np.array([[0., 8.e-4], [8.e-4, 0.]])
 
 D_knudsen = D_Knudsen(rp, T, M*1e3)
 D_knudsenEff = D_knudsen * epsilon / tau
@@ -92,6 +93,46 @@ w_zhou = x2w(x_tpb, M)
 print(f'w [H2, H20] @channel is \t{w_cv}')
 print(f'w [H2, H20] @tpb is     \t{w_zhou}')
 print(f'The total pressure is {P_tpb*1e-5:.4} bar')
+
+# %% Electrochemistry
+# parameters for the object Echem
+
+etaAct = np.linspace(0., 0.6, 10000)
+k_c3 = 0.2e-16
+l_tpb = 10e4        # I will have to check this value
+xH2, xH2O = x_tpb
+xO2 = 0.21
+
+# create the object Echem
+Echem = ElectrochemicalSystem(['H2', 'O2', 'H2O'], 
+                              T, P, xH2, xH2O, xO2, 
+                              etaAct, l_tpb)
+
+# extract values
+dG_R = Echem.calculate_gibbs()
+K1to5 = Echem.calculate_reaction_constants()
+
+# calculate the OCV
+U_rev = Echem.calcUrev()
+eta_leak = Echem.calcLeakVoltage()
+OCV = U_rev - eta_leak
+
+
+# %%
+voltage = OCV - etaAct
+import matplotlib.pyplot as plt
+
+plt.figure()
+plt.title('UV-Curve @ 800°C')
+plt.plot(Echem.currentDensity(), 
+         voltage, label = '$x_{H2}$ = ' + str(xH2))
+plt.xlim([0, 5.])
+plt.ylim([0, 1.3])
+plt.xlabel('current / A/cm²')
+plt.ylabel('voltage / V')
+plt.legend()
+
+
 
 
 

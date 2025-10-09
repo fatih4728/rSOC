@@ -146,15 +146,11 @@ if __name__=="__main__":
     # gasses 
     xH2 = 0.9
     xH2O = 1 - xH2 
-    xO2 = 0.21 
+    xO2 = 0.21
     pH2 = xH2 * P
     pH2O = xH2O * P
     pO2 = xO2 * P
        
-
-
-    
-
     
     # %%
     # parameters for the object Echem
@@ -172,9 +168,8 @@ if __name__=="__main__":
     # extract values
     dG_R = Echem.calculate_gibbs()
     K1to5 = Echem.calculate_reaction_constants()
-
     
-    # # calculate the OCV
+    # calculate the OCV
     U_rev = Echem.calcUrev()
     eta_leak = Echem.calcLeakVoltage()
     OCV = U_rev - eta_leak
