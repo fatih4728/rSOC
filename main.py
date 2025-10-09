@@ -23,8 +23,8 @@ T = 700 + 273.15        # operating temperature of the soc
 P = 101325.0          # operating pressure of the soc
 F = 96485.33212331001          # faraday constant
 R = 8.314462618153241     # import universal gas constant
-i = np.array([1369.7155, 15468.857, 24999.998])
-i = i[2]
+# i = np.array([1369.7155, 15468.857, 24999.998])
+# i = i[0]
 
 
 # geometry
@@ -50,6 +50,33 @@ c_ch = x_ch * cT
 D_knudsen = D_Knudsen(rp, T, M*1e3)
 D_knudsenEff = D_knudsen * epsilon / tau
 D_binaryEff = np.array([[0., D_Fuller(T)], [D_Fuller(T), 0.]]) *epsilon/tau
+
+# %% Electrochemistry
+# parameters for the object Echem
+
+etaAct = np.linspace(0., 1.0, 10)
+etaAct = 0.56
+k_c3 = 0.2e-16
+l_tpb = 10e4        # I will have to check this value
+x_tpb = np.array([0.1, 0.9])
+xH2, xH2O = x_tpb
+xO2 = 0.21
+
+# create the object Echem
+Echem = ElectrochemicalSystem(['H2', 'O2', 'H2O'], 
+                              T, P, xH2, xH2O, xO2, 
+                              etaAct, l_tpb)
+
+# extract values
+dG_R = Echem.calculate_gibbs()
+K1to5 = Echem.calculate_reaction_constants()
+i = Echem.currentDensity()*1e4
+
+# calculate the OCV
+U_rev = Echem.calcUrev()
+eta_leak = Echem.calcLeakVoltage()
+OCV = U_rev - eta_leak
+
 
 # %% Control volume
 
@@ -88,34 +115,18 @@ dgm = DustyGasModelZhou(Bg, c_cv, M, mu, i, dEle, T,
                         D_binaryEff, D_knudsenEff)
 
 x_tpb, P_tpb = dgm.solveDGM()
+if x_tpb[0] < 0:
+    print('##############################')
+    print('Hydrogen is completely depleted. Try increasing hydrogen \
+          concentration or decreasing the current density')
+    print('##############################')
+
 
 w_zhou = x2w(x_tpb, M)
 print(f'w [H2, H20] @channel is \t{w_cv}')
 print(f'w [H2, H20] @tpb is     \t{w_zhou}')
 print(f'The total pressure is {P_tpb*1e-5:.4} bar')
 
-# %% Electrochemistry
-# parameters for the object Echem
-
-etaAct = np.linspace(0., 0.6, 10000)
-k_c3 = 0.2e-16
-l_tpb = 10e4        # I will have to check this value
-xH2, xH2O = x_tpb
-xO2 = 0.21
-
-# create the object Echem
-Echem = ElectrochemicalSystem(['H2', 'O2', 'H2O'], 
-                              T, P, xH2, xH2O, xO2, 
-                              etaAct, l_tpb)
-
-# extract values
-dG_R = Echem.calculate_gibbs()
-K1to5 = Echem.calculate_reaction_constants()
-
-# calculate the OCV
-U_rev = Echem.calcUrev()
-eta_leak = Echem.calcLeakVoltage()
-OCV = U_rev - eta_leak
 
 
 # %%
@@ -125,7 +136,7 @@ import matplotlib.pyplot as plt
 plt.figure()
 plt.title('UV-Curve @ 800°C')
 plt.plot(Echem.currentDensity(), 
-         voltage, label = '$x_{H2}$ = ' + str(xH2))
+         voltage, 'ro' ,label = '$x_{H2}$ = ' + str(xH2))
 plt.xlim([0, 5.])
 plt.ylim([0, 1.3])
 plt.xlabel('current / A/cm²')
