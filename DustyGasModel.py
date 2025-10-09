@@ -137,6 +137,27 @@ class DustyGasModelZhou:
         
         return x_zhou, P_zhou
 
+class ControlVolume:
+    def __init__(self, mDotIn, mDotDiff, wIn):
+        self.mDotIn = mDotIn
+        self.mDotDiff = mDotDiff
+        self.wIn = wIn
+    
+    def massBalance(self):
+        mDotOut = self.mDotDiff + self.mDotIn
+        xInH2, xInH2O = self.wIn
+        if mDotOut[0] < 0 or mDotOut[1] < 0:
+            print("the outlet is not outletting")
+        mDotH2_out = abs(self.mDotIn[0]) - abs(self.mDotDiff[0])
+        yOutH2 = mDotH2_out/mDotOut.sum()
+        
+        Uf = 1 - yOutH2/self.wIn[0]
+        if Uf > 1.0:
+            print("Not enough H2 to support operation")
+            print("increase volume flow, or decrease current density or area")
+        return mDotOut, np.array([yOutH2, 1-yOutH2]), Uf
+
+
 
 def permeabilityFactorBg(epsilon, tau, rp):
     """

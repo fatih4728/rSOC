@@ -9,10 +9,10 @@ calling the class test
 
 
 import numpy as np
-from matrixFormDGM import DustyGasModelZhou, permeabilityFactorBg
-from matrixFormDGM import calculateMolarFlux, x2w, w2x
-from matrixFormDGM import D_Fuller, D_Knudsen
-from controlVolume import ControlVolume
+from DustyGasModel import DustyGasModelZhou, permeabilityFactorBg
+from DustyGasModel import calculateMolarFlux, x2w, w2x
+from DustyGasModel import D_Fuller, D_Knudsen
+from DustyGasModel import ControlVolume
 from CoolProp.CoolProp import PropsSI
 from electrochemistryAndThermodynamics import ElectrochemicalSystem
 

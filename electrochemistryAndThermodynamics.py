@@ -7,7 +7,8 @@ Created on Thu Oct  9 14:18:04 2025
 
 import numpy as np
 import matplotlib.pyplot as plt
-from getHS import get_thermo_properties_dict
+import cantera as ct
+
 
 class ElectrochemicalSystem:
     F = 96485.33212331001      # Faraday constant
@@ -32,7 +33,7 @@ class ElectrochemicalSystem:
         self.pO2 = 0.5 * xO * P
 
         # Thermodynamics
-        self.TD = get_thermo_properties_dict(species_list, T, P)
+        self.TD = self.get_thermo_properties_dict()
         self.calculate_gibbs()
         self.set_adsorption_properties()
         self.calculate_reaction_constants()
@@ -43,6 +44,32 @@ class ElectrochemicalSystem:
         self.Ea = np.log(K1*K2*K3*K4/K5*xH2/xH2O) * self.R*T / (2*self.F) * -1
 
     # ---------------- Thermodynamics ----------------
+    def get_thermo_properties_dict(self, mechanism='gri30.yaml'):
+        """
+        Returns enthalpy, entropy, and Gibbs free energy for a list of pure species at given T and P.
+        
+        Parameters:
+            species_list (list of str): Species names, e.g., ['H2', 'O2'].
+            T (float): Temperature in K.
+            P (float): Pressure in Pa.
+            mechanism (str): Cantera mechanism file (default: 'gri30.yaml').
+            
+        Returns:
+            dict: {species: {'H': value_kJ_per_mol, 'S': value_kJ_per_molK, 'G': value_kJ_per_mol}, ...}
+        """
+        gas = ct.Solution(mechanism)
+        results = {}
+        
+        for sp in self.species_list:
+            gas.TPX = self.T, self.P, f'{sp}:1.0'
+            results[sp] = {
+                'H': gas.enthalpy_mole * 1e-3,   # kJ/mol
+                'S': gas.entropy_mole * 1e-3,    # kJ/(mol·K)
+                'G': gas.gibbs_mole * 1e-3       # kJ/mol
+            }
+        
+        return results
+    
     def calculate_gibbs(self):
         self.dG_R = self.TD['H2O']['G'] - self.TD['H2']['G'] - 0.5*self.TD['O2']['G']
         self.H2 = np.array([self.TD['H2']['H'], self.TD['H2']['S']])
