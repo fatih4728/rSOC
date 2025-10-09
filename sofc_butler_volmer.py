@@ -9,8 +9,8 @@ In this model I will try to recreate the SOFC model of Colin
 """
 import numpy as np
 import matplotlib.pyplot as plt
-from CoolProp.CoolProp import PropsSI
-import cantera as ct
+from getHS import get_thermo_properties_dict
+
 
 # %%
 class Echem:
@@ -176,22 +176,15 @@ if __name__=="__main__":
     pH2 = xH2 * P
     pH2O = xH2O * P
     pO2 = xO2 * P
-    
-    # Vdot_fuel = 140 *1e-6 / 60  # volume flow in m³/s
-    # Vdot_air = 550 *1e-6 / 60   # volume flow in m³/s
-    # T_flow = 150 + 273.15       # Temperature of the volume flows in K
-    
-    #################################################################
-    
+       
 
     # %%  Automatically calling the thermodynamic states
-    from getHS import get_thermo_properties_dict
     species_list = ['H2', 'O2', 'H2O']  
     TD = get_thermo_properties_dict(species_list, T, P)
     dG_R = TD['H2O']['G'] - TD['H2']['G'] - TD['O2']['G'] * 0.5
 
     H2 = np.array([TD['H2']['H'], TD['H2']['S']])
-    O2 = np.array([TD['O2']['H'], TD['O2']['S']])
+    # O2 = np.array([TD['O2']['H'], TD['O2']['S']])
     H2O = np.array([TD['H2O']['H'], TD['H2O']['S']])
     
     # %%
@@ -231,9 +224,11 @@ if __name__=="__main__":
     AtoD = np.array([A, B, C, D])
     K1to5 = np.array([K1, K2, K3, K4, K5])
     
+    # %%
     # create the object Echem
+
     N = 10000
-    etaAct = np.linspace(0., 0.0, N)
+    etaAct = np.linspace(0., 0.8, N)
     # beta3 = 0.5
     k_c3 = 0.2e-16
     l_tpb = 10e4        # I will have to check this value
@@ -255,7 +250,6 @@ if __name__=="__main__":
     # %%
     # # plot Nickel
     
-    # covNi, covH = coveragesNickel(xH2_array)
     covNi, covH = Echem.coveragesNickel(N)
     
     # plt.figure()
@@ -291,15 +285,15 @@ if __name__=="__main__":
     voltage = OCV - etaAct
     print(voltage)
     
-    # plt.figure()
-    # plt.title('UV-Curve @ 800°C')
-    # plt.plot(Echem.currentDensity(), 
-    #          voltage, label = '$x_{H2}$ = ' + str(xH2))
-    # plt.xlim([0, 3.])
-    # plt.ylim([0, 1.3])
-    # plt.xlabel('current / A/cm²')
-    # plt.ylabel('voltage / V')
-    # plt.legend()
+    plt.figure()
+    plt.title('UV-Curve @ 800°C')
+    plt.plot(Echem.currentDensity(), 
+             voltage, label = '$x_{H2}$ = ' + str(xH2))
+    plt.xlim([0, 3.])
+    plt.ylim([0, 1.3])
+    plt.xlabel('current / A/cm²')
+    plt.ylabel('voltage / V')
+    plt.legend()
     
     
     
