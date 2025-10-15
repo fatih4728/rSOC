@@ -41,7 +41,7 @@ class ElectrochemicalSystem:
 
         # Activation energy from equilibrium constants
         K1, K2, K3, K4, K5 = self.K1to5
-        self.Ea = np.log(K1*K2*K3*K4/K5*xH2/xH2O) * self.R*T / (2*self.F) * -1
+        # self.Ea = np.log(K1*K2*K3*K4/K5*xH2/xH2O) * self.R*T / (2*self.F) * -1
 
     # ---------------- Thermodynamics ----------------
     def get_thermo_properties_dict(self, mechanism='gri30.yaml'):
@@ -115,6 +115,7 @@ class ElectrochemicalSystem:
 
     # ---------------- Electrochemistry ----------------
     def calcUrev(self):
+        # the concentration has to come from the DGM
         return (-self.dG_R/2/self.F - self.R*self.T/2/self.F *
                 np.log(self.pH2O/self.pH2/(self.pO2**0.5) * self.P**0.5))
 
@@ -127,6 +128,7 @@ class ElectrochemicalSystem:
         K1, K2, K3, K4, K5 = self.K1to5
         pH2ad = 1 / K1
         i03star = self.l_tpb * self.F * self.k_c3 * ((K2*K4/K5)**0.25) * K4**0.75
+        # i03cross & i3 sind von den partialdrücken abhängig.
         i03cross = i03star * ((self.pH2/pH2ad)**0.25 * self.pH2O**0.75) / (1 + (self.pH2/pH2ad)**0.5)
         i3 = i03cross * (np.exp(0.5*self.F*self.etaAct/self.R/self.T) -
                          np.exp(-1.5*self.F*self.etaAct/self.R/self.T)) / \
@@ -170,7 +172,7 @@ if __name__=="__main__":
     F = 96485.33212331001          # faraday constant
     R = 8.314462618153241     # import universal gas constant
     
-    # gasses 
+    # gasses (coupling!)
     xH2 = 0.9
     xH2O = 1 - xH2 
     xO2 = 0.21

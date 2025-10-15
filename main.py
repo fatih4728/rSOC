@@ -15,6 +15,7 @@ from DustyGasModel import D_Fuller, D_Knudsen
 from DustyGasModel import ControlVolume
 from CoolProp.CoolProp import PropsSI
 from electrochemistryAndThermodynamics import ElectrochemicalSystem
+from XY_2D import standardized_plot
 
 # %% Parameters %%
 
@@ -54,8 +55,8 @@ D_binaryEff = np.array([[0., D_Fuller(T)], [D_Fuller(T), 0.]]) *epsilon/tau
 # %% Electrochemistry
 # parameters for the object Echem
 
-etaAct = np.linspace(0., 1.0, 10)
-etaAct = 0.5
+etaAct = np.linspace(0., 0.4, 10)
+# etaAct = 0.5
 k_c3 = 0.2e-16
 l_tpb = 10e4        # I will have to check this value
 x_tpb = np.array([0.1, 0.9])
@@ -101,7 +102,7 @@ mu = np.array([muH2, muH2O])
 
 # calculate the values of the control volume
 mDotIn = VdotFuel * x_in * rho
-mDotDiff = calculateMolarFlux(i, A) * M
+mDotDiff = J * M[:, np.newaxis]
 controlVolume = ControlVolume(mDotIn, mDotDiff, x2w(x_in, M))
 # this has to give same values to Colin
 mDotOut, w_cv, Uf = controlVolume.massBalance()     
@@ -129,23 +130,24 @@ w_zhou = x2w(x_tpb, M)
 # print(f'w[H2, H20] @tpb is     \t{w_zhou}')
 print(f'The total pressure is {P_tpb*1e-5:.4} bar')
 
-plt.figure()
-plt.title('concentration plot')
-plt.plot(['input', 'channel', 'tpb'], [w_in[0], w_cv[0], w_zhou[0]], 'k--o')
-plt.ylim([0, 0.11])
+# plt.figure()
+# plt.title('concentration plot')
+# plt.plot(['input', 'channel', 'tpb'], [w_in[0], w_cv[0], w_zhou[0]], 'k--o')
+# plt.ylim([0, 0.11])
 
 # %%
-# voltage = OCV - etaAct
+voltage = OCV - etaAct
 
-# plt.figure()
-# plt.title('UV-Curve @ 800°C')
-# plt.plot(Echem.currentDensity(), 
-#          voltage, 'ro' ,label = '$x_{H2}$ = ' + str(xH2))
-# plt.xlim([0, 5.])
-# plt.ylim([0, 1.3])
-# plt.xlabel('current / A/cm²')
-# plt.ylabel('voltage / V')
-# plt.legend()
+
+plt.figure()
+plt.title('UV-Curve @ 800°C')
+plt.plot(Echem.currentDensity(), 
+         voltage, 'ro' , label = '$x_{H2}$ = ' + str(xH2))
+plt.xlim([0, 5.])
+plt.ylim([0, 1.3])
+plt.xlabel('current / A/cm²')
+plt.ylabel('voltage / V')
+plt.legend()
 
 
 
