@@ -14,7 +14,8 @@ class ElectrochemicalSystem:
     F = 96485.33212331001      # Faraday constant
     R = 8.314462618153241      # Gas constant
 
-    def __init__(self, species_list, T, P, xH2, xH2O, xO, etaAct, l_tpb, a=25, k_c3=0.2e-16):
+    def __init__(self, species_list, T, P, xH2, xH2O, xO, 
+                 etaAct, l_tpb, a=25, k_c3=0.2e-16):
         self.species_list = species_list
         self.T = T
         self.P = P
@@ -127,12 +128,15 @@ class ElectrochemicalSystem:
     def currentDensity(self):
         K1, K2, K3, K4, K5 = self.K1to5
         pH2ad = 1 / K1
-        i03star = self.l_tpb * self.F * self.k_c3 * ((K2*K4/K5)**0.25) * K4**0.75
+        i03star = (self.l_tpb * self.F * self.k_c3 * 
+                   ((K2*K4/K5)**0.25) * K4**0.75)
         # i03cross & i3 sind von den partialdrücken abhängig.
-        i03cross = i03star * ((self.pH2/pH2ad)**0.25 * self.pH2O**0.75) / (1 + (self.pH2/pH2ad)**0.5)
-        i3 = i03cross * (np.exp(0.5*self.F*self.etaAct/self.R/self.T) -
-                         np.exp(-1.5*self.F*self.etaAct/self.R/self.T)) / \
-             (np.exp(-self.F*self.etaAct/self.R/self.T) * (1 + 1/K5) + (K2/K3/K4/K5*self.xH2O)**0.5)
+        i03cross = (i03star * ((self.pH2/pH2ad)**0.25 * self.pH2O**0.75) 
+                    / (1 + (self.pH2/pH2ad)**0.5))
+        i3 = (i03cross * (np.exp(0.5*self.F*self.etaAct/self.R/self.T) -
+                         np.exp(-1.5*self.F*self.etaAct/self.R/self.T)) 
+              / (np.exp(-self.F*self.etaAct/self.R/self.T) 
+              * (1 + 1/K5) + (K2/K3/K4/K5*self.xH2O)**0.5))
         return i3 / 10000
 
     # ---------------- Surface Coverages ----------------
@@ -143,7 +147,8 @@ class ElectrochemicalSystem:
     def DEN_YSZ(self, N):
         K1, K2, K3, K4, K5 = self.K1to5
         xH2 = np.linspace(0, 1, N)
-        return 1 + 1/K5 + (K2/K3/K4/K5*(1-xH2))**0.5 * np.exp(self.F*self.etaAct[-1]/self.R/self.T) + 1/K4*(1-xH2)
+        return (1 + 1/K5 + (K2/K3/K4/K5*(1-xH2))**0.5 
+                * np.exp(self.F*self.etaAct[-1]/self.R/self.T) + 1/K4*(1-xH2))
 
     def coveragesNickel(self, N):
         xH2 = np.linspace(0., 1., N)

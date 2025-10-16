@@ -18,7 +18,7 @@ def standardized_plot(
     xlabel="X", ylabel="Y", title=None,
     grid=False, style="seaborn-v0_8-paper",
     savepath=None, labels=None, startAtZero=True,
-    font="Helvetica"
+    font="Helvetica", marker=None
 ):
     """
     x : list or array
@@ -48,16 +48,19 @@ def standardized_plot(
         plt.rcParams['font.sans-serif'] = [font]
 
     # Create a new figure and axis
-    fig, ax = plt.subplots(figsize=(6*1.3, 4*1.3))
+    fig, ax = plt.subplots(figsize=(6*0.7, 4*0.7))
   
     # Plot each dataset and keep handles for legend
     color=['#F46A25', '#87CEEB', 'purple', '#B2B2B2', 'grey', 'lime']
-
+    # if marker:
+    #     marker ='.'
     
+    print(marker)
     lines = []
     for idx, y in enumerate(y_list_corrected):
         label = labels[idx] if labels and idx < len(labels) else f"Line {idx+1}"
-        line, = ax.plot(x, y, linewidth=2, label=label, color=color[idx])
+        line, = ax.plot(x, y, linewidth=2, label=label, color=color[idx], 
+                        marker = marker, markersize = 10)
         lines.append(line)
     
     # Label axes and title
@@ -88,8 +91,8 @@ def standardized_plot(
         y_max = max([y.max() for y in y_list_corrected])
         y_min = min([y.min() for y in y_list_corrected])
         
-        ax.set_xlim(left=xmin, right=max(x))
-        ax.set_ylim(bottom=y_min, top=y_max)
+        ax.set_xlim(left=xmin, right=int(max(x)+1))
+        ax.set_ylim(bottom=y_min, top=int(y_max+1))
 
     # Add legend
     ax.legend()
@@ -124,7 +127,7 @@ if __name__=="__main__":
     standardized_plot(x, [y, y2, y3, y4], 
                       'Distance / m', 'Height / cm',   
                       labels=["base", "power of two", "linear", "sub"],
-                      style='seaborn-v0_8-poster',
+                      style='seaborn-v0_8-paper',
                       savepath=r'C:\Users\smfadurm\Desktop\test',
                       font = 'Helvetica')
 
