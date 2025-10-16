@@ -45,18 +45,20 @@ c_ch = x_ch * cT
 
 
 ## Diffusion Coefficients
-# D_knudsenEff_Colin = np.array([2.8e-5, 9.4e-6])
-# D_binaryEff_Colin = np.array([[0., 8.e-4], [8.e-4, 0.]])
-
 D_knudsen = D_Knudsen(rp, T, M*1e3)
 D_knudsenEff = D_knudsen * epsilon / tau
 D_binaryEff = np.array([[0., D_Fuller(T)], [D_Fuller(T), 0.]]) *epsilon/tau
 
+
+# %% Start the loop here
+
+
+
 # %% Electrochemistry
 # parameters for the object Echem
 
-etaAct = np.linspace(0., 0.4, 10)
-# etaAct = 0.5
+etaActList = np.linspace(0., 0.5, 10)
+etaAct = 0.5
 k_c3 = 0.2e-16
 l_tpb = 10e4        # I will have to check this value
 x_tpb = np.array([0.1, 0.9])
@@ -102,7 +104,7 @@ mu = np.array([muH2, muH2O])
 
 # calculate the values of the control volume
 mDotIn = VdotFuel * x_in * rho
-mDotDiff = J * M[:, np.newaxis]
+mDotDiff = J * M
 controlVolume = ControlVolume(mDotIn, mDotDiff, x2w(x_in, M))
 # this has to give same values to Colin
 mDotOut, w_cv, Uf = controlVolume.massBalance()     

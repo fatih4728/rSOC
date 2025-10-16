@@ -146,13 +146,13 @@ class ControlVolume:
     def massBalance(self):
         mDotOut = self.mDotDiff + self.mDotIn
         xInH2, xInH2O = self.wIn
-        if mDotOut[0] < 0 or mDotOut[1] < 0:
+        if mDotOut.any() < 0:
             print("the outlet is not outletting")
         mDotH2_out = abs(self.mDotIn[0]) - abs(self.mDotDiff[0])
         yOutH2 = mDotH2_out/mDotOut.sum()
         
         Uf = 1 - yOutH2/self.wIn[0]
-        if Uf > 1.0:
+        if Uf.any() > 1.0:
             print("Not enough H2 to support operation")
             print("increase volume flow, or decrease current density or area")
         return mDotOut, np.array([yOutH2, 1-yOutH2]), Uf
@@ -190,7 +190,7 @@ def calculateMolarFlux(i, A):
     F = 96485.33212331001          # faraday constant
     ndotH2 = i/F/2*A
     ndotH2O = ndotH2
-    return np.vstack((-ndotH2, ndotH2O))
+    return np.array((-ndotH2, ndotH2O))
 
 def x2w(x, M):
     return x * M / np.sum(x*M)
