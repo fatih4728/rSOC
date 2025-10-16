@@ -8,6 +8,7 @@ Created on Thu Oct  9 14:18:04 2025
 import numpy as np
 import matplotlib.pyplot as plt
 import cantera as ct
+from scipy.optimize import fsolve
 
 
 class ElectrochemicalSystem:
@@ -15,7 +16,7 @@ class ElectrochemicalSystem:
     R = 8.314462618153241      # Gas constant
 
     def __init__(self, species_list, T, P, xH2, xH2O, xO, 
-                 etaAct, l_tpb, a=25, k_c3=5.e-14):
+                 i, l_tpb, a=25, k_c3=5.e-14):
         self.species_list = species_list
         self.T = T
         self.P = P
@@ -23,9 +24,10 @@ class ElectrochemicalSystem:
         self.xH2 = xH2
         self.xH2O = xH2O
         self.xO = xO
-        self.etaAct = etaAct
+        # self.etaAct = etaAct
         self.l_tpb = l_tpb
         self.k_c3 = k_c3
+        self.i = i
 
         # Partial pressures
         self.pH2 = xH2 * P
@@ -129,7 +131,7 @@ class ElectrochemicalSystem:
         eta_leak_0 = -A * np.log(self.pO2)**B + C * (self.pH2/self.P)**D
         return eta_leak_0 * (1 - np.tanh(i_A/i_A_lim))
 
-    def currentDensity(self):
+    def currentDensity(self, etaAct):
         K1, K2, K3, K4, K5 = self.K1to5
         pH2ad = 1 / K1
         i03star = (self.l_tpb * self.F * self.k_c3 * 
@@ -137,11 +139,16 @@ class ElectrochemicalSystem:
         # i03cross & i3 sind von den partialdrücken abhängig.
         i03cross = (i03star * ((self.pH2/pH2ad)**0.25 * self.pH2O**0.75) 
                     / (1 + (self.pH2/pH2ad)**0.5))
-        i3 = (i03cross * (np.exp(0.5*self.F*self.etaAct/self.R/self.T) -
-                         np.exp(-1.5*self.F*self.etaAct/self.R/self.T)) 
-              / (np.exp(-self.F*self.etaAct/self.R/self.T) 
-              * (1 + 1/K5) + (K2/K3/K4/K5*self.xH2O)**0.5))
-        return i3 / 10000
+        i3 = (i03cross * (np.exp(0.5*self.F* etaAct /self.R/self.T) -
+                         np.exp(-1.5*self.F* etaAct /self.R/self.T)) 
+              / (np.exp(-self.F* etaAct /self.R/self.T) 
+              * (1 + 1/K5) + (K2/K3/K4/K5*self.xH2O)**0.5)
+              - self.i)
+        return i3
+    
+    def calculateOverpotential(self):
+        self.etaAct = fsolve(self.currentDensity, 0.1)[0]
+        return self.etaAct
 
     # ---------------- Surface Coverages ----------------
     def DEN_Ni(self, N):
@@ -151,8 +158,9 @@ class ElectrochemicalSystem:
     def DEN_YSZ(self, N):
         K1, K2, K3, K4, K5 = self.K1to5
         xH2 = np.linspace(0, 1, N)
+        etaAct = fsolve(self.currentDensity, 0.1)
         return (1 + 1/K5 + (K2/K3/K4/K5*(1-xH2))**0.5 
-                * np.exp(self.F*self.etaAct[-1]/self.R/self.T) + 1/K4*(1-xH2))
+                * np.exp(self.F*etaAct[-1]/self.R/self.T) + 1/K4*(1-xH2))
 
     def coveragesNickel(self, N):
         xH2 = np.linspace(0., 1., N)
@@ -192,76 +200,92 @@ if __name__=="__main__":
     
     # %%
     # parameters for the object Echem
-    N = 10000
+    N = 10
     species_list = ['H2', 'O2', 'H2O']
-    etaAct = np.linspace(0., 0.8, N)
-    # beta3 = 0.5
-    k_c3 = 0.2e-16
-    l_tpb = 10e4        # I will have to check this value
+    # etaAct = np.linspace(0., 0.8, N)
+    currentDensities = np.linspace(0, 3*1e4, N)
+    voltageList = []
+    etaActList = []
+    for currentDensity in currentDensities:
+        # beta3 = 0.5
+        k_c3 = 0.2e-16
+        l_tpb = 10e4        # I will have to check this value
+        
+        # create the object Echem
+        Echem = ElectrochemicalSystem(species_list, T, P, xH2, xH2O, 
+                                      xO2, currentDensity, l_tpb)
+        
+        # extract values
+        dG_R = Echem.calculate_gibbs()
+        K1to5 = Echem.calculate_reaction_constants()
+        etaAct = Echem.calculateOverpotential()
+        
+        # check, whether upper boundary has been reached
+        initial_guess = 0.1
+        tol = 1e-3
+        mask_failed = np.isclose(etaAct, initial_guess, atol=tol)
+        if mask_failed:
+            break
+        
+        # calculate the OCV
+        U_rev = Echem.calcUrev()
+        eta_leak = Echem.calcLeakVoltage()
+        OCV = U_rev - eta_leak
+        
+        
+        # %%
+        xH2_array = np.linspace(0., 1., N)
+        
+        
+        # %%
+        # # plot Nickel
+        
+        # covNi, covH = Echem.coveragesNickel(N)
+        
+        # plt.figure()
+        # plt.title('Surface Coverage Ni (p = 1 atm)')
+        # plt.plot(xH2_array, covNi, label = r'$\theta$Ni')
+        # plt.plot(xH2_array, covH, label = r'$\theta$H(Ni)')
+        # plt.xlim([0, 1])
+        # plt.ylim([0, 1])
+        # plt.xlabel(r'$x_{H2}$ / mol/mol')
+        # plt.ylabel('coverage / 1')
+        # plt.legend()
+        
+        # plot YSZ
+        covYSZ, covO2m, covH2O, covOHm = Echem.coveragesYSZ(N)
+        # plt.figure()
+        # plt.title('Surface Coverage YSZ (p = 1 atm)')
+        # plt.plot(xH2_array, covYSZ, label = r'$\theta$YSZ')
+        # plt.plot(xH2_array, covO2m, label = r'$\theta O^{2-}(YSZ)$')
+        # plt.plot(xH2_array, covH2O, label = r'$\theta H2O(YSZ)$', )
+        # plt.plot(xH2_array, covOHm, label = r'$\theta OH^{-}(YSZ)$')
+        # plt.xlim([0, 1])
+        # plt.ylim([0, 1])
+        # plt.xlabel(r'$x_{H2}$ / mol/mol')
+        # plt.ylabel('coverage / 1')
+        # plt.legend()
+        
+        
+        # why are there two Ea??
+        K1, K2, K3, K4, K5 = K1to5
+        Ea = -np.log(K1*K2*K3*K4/K5)*R*T/2/F  # why not partial pressure?
+        
+        
+        # ## calculation of i3
+        voltage = OCV - etaAct
+        voltageList.append(voltage)
+        etaActList.append(etaAct)
     
-    # create the object Echem
-    Echem = ElectrochemicalSystem(species_list, T, P, xH2, xH2O, 
-                                  xO2, etaAct, l_tpb)
     
-    # extract values
-    dG_R = Echem.calculate_gibbs()
-    K1to5 = Echem.calculate_reaction_constants()
-    
-    # calculate the OCV
-    U_rev = Echem.calcUrev()
-    eta_leak = Echem.calcLeakVoltage()
-    OCV = U_rev - eta_leak
-    
-    
-    # %%
-    xH2_array = np.linspace(0., 1., N)
-    
-    
-    # %%
-    # # plot Nickel
-    
-    covNi, covH = Echem.coveragesNickel(N)
-    
-    plt.figure()
-    plt.title('Surface Coverage Ni (p = 1 atm)')
-    plt.plot(xH2_array, covNi, label = r'$\theta$Ni')
-    plt.plot(xH2_array, covH, label = r'$\theta$H(Ni)')
-    plt.xlim([0, 1])
-    plt.ylim([0, 1])
-    plt.xlabel(r'$x_{H2}$ / mol/mol')
-    plt.ylabel('coverage / 1')
-    plt.legend()
-    
-    # plot YSZ
-    covYSZ, covO2m, covH2O, covOHm = Echem.coveragesYSZ(N)
-    # plt.figure()
-    # plt.title('Surface Coverage YSZ (p = 1 atm)')
-    # plt.plot(xH2_array, covYSZ, label = r'$\theta$YSZ')
-    # plt.plot(xH2_array, covO2m, label = r'$\theta O^{2-}(YSZ)$')
-    # plt.plot(xH2_array, covH2O, label = r'$\theta H2O(YSZ)$', )
-    # plt.plot(xH2_array, covOHm, label = r'$\theta OH^{-}(YSZ)$')
-    # plt.xlim([0, 1])
-    # plt.ylim([0, 1])
-    # plt.xlabel(r'$x_{H2}$ / mol/mol')
-    # plt.ylabel('coverage / 1')
-    # plt.legend()
-    
-    
-    # why are there two Ea??
-    K1, K2, K3, K4, K5 = K1to5
-    Ea = -np.log(K1*K2*K3*K4/K5)*R*T/2/F  # why not partial pressure?
-    
-    
-    # ## calculation of i3
-    voltage = OCV - etaAct
-    print(voltage)
+    voltageList = np.array([voltageList])[0, :]
     
     plt.figure()
     plt.title('UV-Curve @ 800°C')
-    plt.plot(Echem.currentDensity(), 
-             voltage, label = '$x_{H2}$ = ' + str(xH2))
-    plt.xlim([0, 3.])
-    plt.ylim([0, 1.3])
+    plt.plot(currentDensities[0:len(voltageList)], voltageList, 
+             'ro', label = '$x_{H2}$ = ' + str(xH2))
+    # plt.xlim([0, 4.])
+    plt.ylim([0, 1.0])
     plt.xlabel('current / A/cm²')
     plt.ylabel('voltage / V')
     plt.legend()

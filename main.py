@@ -14,7 +14,7 @@ from DustyGasModel import calculateMolarFlux, x2w, w2x
 from DustyGasModel import D_Fuller, D_Knudsen
 from DustyGasModel import ControlVolume
 from CoolProp.CoolProp import PropsSI
-from electrochemistryAndThermodynamics import ElectrochemicalSystem
+from electrochemistryAndThermodynamics_byCurrent import ElectrochemicalSystem
 from XY_2D import standardized_plot
 
 # %% Parameters %%
@@ -52,11 +52,12 @@ D_binaryEff = np.array([[0., D_Fuller(T)], [D_Fuller(T), 0.]]) *epsilon/tau
 
 # %% Start the loop here
 
-etaActList = np.linspace(0., 0.54, 20)
+# etaActList = np.linspace(0., 0.54, 20)
 voltages = []
-currentDensities =[]
+currentDensities =np.linspace(1e-4, 2.e4, 20)
 pressures=[]
-for etaAct in etaActList:
+# for etaAct in etaActList:
+for currentDensity in currentDensities:
         
     # %% Electrochemistry
     # parameters for the object Echem
@@ -70,12 +71,14 @@ for etaAct in etaActList:
     # create the object Echem
     Echem = ElectrochemicalSystem(['H2', 'O2', 'H2O'], 
                                   T, P, xH2, xH2O, xO2, 
-                                  etaAct, l_tpb)
+                                  currentDensity, l_tpb)
     
     # extract values
     dG_R = Echem.calculate_gibbs()
     K1to5 = Echem.calculate_reaction_constants()
-    i = Echem.currentDensity()*1e4
+    # i = Echem.currentDensity()*1e4
+    etaAct = Echem.calculateOverpotential()
+
     
     # calculate the OCV
     U_rev = Echem.calcUrev()
@@ -90,7 +93,7 @@ for etaAct in etaActList:
     w_in = x2w(x_in, M)
     
     # flows
-    J = calculateMolarFlux(i, A)
+    J = calculateMolarFlux(currentDensity, A)
     VdotFuel = 140 *1e-6 / 60  
     Tflow = 150 + 273.15 
     
@@ -117,7 +120,7 @@ for etaAct in etaActList:
     # %% Dusty Gas Model %%
     
     Bg = permeabilityFactorBg(epsilon, tau, rp)
-    dgm = DustyGasModelZhou(Bg, c_cv, M, mu, i, dEle, T, 
+    dgm = DustyGasModelZhou(Bg, c_cv, M, mu, currentDensity, dEle, T, 
                             D_binaryEff, D_knudsenEff)
     
     x_tpb, P_tpb = dgm.solveDGM()
@@ -125,7 +128,7 @@ for etaAct in etaActList:
         print('##############################')
         print('Hydrogen is  depleted. Try increasing hydrogen \
               concentration or decreasing the current density')
-        print(f'Current density: {i*1e-4:.2}')
+        print(f'Current density: {currentDensity*1e-4:.2}')
         print(f'Overpotential: {etaAct:.2}')
         print('##############################')
         break
