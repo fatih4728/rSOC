@@ -54,7 +54,7 @@ D_binaryEff = np.array([[0., D_Fuller(T)], [D_Fuller(T), 0.]]) *epsilon/tau
 
 # etaActList = np.linspace(0., 0.54, 20)
 voltages = []
-currentDensities =np.linspace(1e-4, 2.e4, 20)
+currentDensities =np.linspace(1e-4, 4.e4, 20)
 pressures=[]
 # for etaAct in etaActList:
 for currentDensity in currentDensities:
@@ -62,7 +62,7 @@ for currentDensity in currentDensities:
     # %% Electrochemistry
     # parameters for the object Echem
     
-    k_c3 = 0.2e-16
+    k_c3 = 0.2e-15
     l_tpb = 10e4        # I will have to check this value
     x_tpb = np.array([0.1, 0.9])
     xH2, xH2O = x_tpb
@@ -71,7 +71,8 @@ for currentDensity in currentDensities:
     # create the object Echem
     Echem = ElectrochemicalSystem(['H2', 'O2', 'H2O'], 
                                   T, P, xH2, xH2O, xO2, 
-                                  currentDensity, l_tpb)
+                                  currentDensity, l_tpb,
+                                  k_c3=9.e-14)
     
     # extract values
     dG_R = Echem.calculate_gibbs()
@@ -79,6 +80,12 @@ for currentDensity in currentDensities:
     # i = Echem.currentDensity()*1e4
     etaAct = Echem.calculateOverpotential()
 
+    # check, whether upper boundary has been reached
+    initial_guess = 0.1
+    tol = 1e-3
+    mask_failed = np.isclose(etaAct, initial_guess, atol=tol)
+    if mask_failed:
+        break
     
     # calculate the OCV
     U_rev = Echem.calcUrev()
@@ -149,11 +156,11 @@ for currentDensity in currentDensities:
     # %%
     voltage = OCV - etaAct
     voltages.append(voltage)
-    currentDensities.append(Echem.currentDensity())
+    # currentDensities.append(Echem.currentDensity())
 
 
 voltages = np.array(voltages)
-currentDensities = np.array(currentDensities)
+currentDensities = currentDensities[0:len(voltages)]
 
 standardized_plot(currentDensities, [voltages], 
                   r'current density / A cm$^{-2}$', 'voltage / V',
