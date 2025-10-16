@@ -92,7 +92,7 @@ def standardized_plot(
         y_min = min([y.min() for y in y_list_corrected])
         
         ax.set_xlim(left=xmin, right=int(max(x)+1))
-        ax.set_ylim(bottom=y_min, top=int(y_max+1))
+        ax.set_ylim(bottom=int(y_min), top=int(y_max+1))
 
     # Add legend
     ax.legend()

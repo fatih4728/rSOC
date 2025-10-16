@@ -51,47 +51,15 @@ D_binaryEff = np.array([[0., D_Fuller(T)], [D_Fuller(T), 0.]]) *epsilon/tau
 
 
 # %% Start the loop here
-
+N = 100
 # etaActList = np.linspace(0., 0.54, 20)
 voltages = []
-currentDensities =np.linspace(1e-4, 4.e4, 20)
+currentDensities =np.linspace(1e-4, 5.2e4, N)
 pressures=[]
+x_tpbList=[]
 # for etaAct in etaActList:
 for currentDensity in currentDensities:
         
-    # %% Electrochemistry
-    # parameters for the object Echem
-    
-    k_c3 = 0.2e-15
-    l_tpb = 10e4        # I will have to check this value
-    x_tpb = np.array([0.1, 0.9])
-    xH2, xH2O = x_tpb
-    xO2 = 0.21
-    
-    # create the object Echem
-    Echem = ElectrochemicalSystem(['H2', 'O2', 'H2O'], 
-                                  T, P, xH2, xH2O, xO2, 
-                                  currentDensity, l_tpb,
-                                  k_c3=9.e-14)
-    
-    # extract values
-    dG_R = Echem.calculate_gibbs()
-    K1to5 = Echem.calculate_reaction_constants()
-    # i = Echem.currentDensity()*1e4
-    etaAct = Echem.calculateOverpotential()
-
-    # check, whether upper boundary has been reached
-    initial_guess = 0.1
-    tol = 1e-3
-    mask_failed = np.isclose(etaAct, initial_guess, atol=tol)
-    if mask_failed:
-        break
-    
-    # calculate the OCV
-    U_rev = Echem.calcUrev()
-    eta_leak = Echem.calcLeakVoltage()
-    OCV = U_rev - eta_leak
-    
     
     # %% Control volume
     
@@ -131,12 +99,13 @@ for currentDensity in currentDensities:
                             D_binaryEff, D_knudsenEff)
     
     x_tpb, P_tpb = dgm.solveDGM()
+    x_tpbList.append(x_tpb)
     if x_tpb[0] < 0:
         print('##############################')
         print('Hydrogen is  depleted. Try increasing hydrogen \
               concentration or decreasing the current density')
         print(f'Current density: {currentDensity*1e-4:.2}')
-        print(f'Overpotential: {etaAct:.2}')
+        # print(f'Overpotential: {etaAct:.2}')
         print('##############################')
         break
     
@@ -153,7 +122,39 @@ for currentDensity in currentDensities:
     # plt.plot(['input', 'channel', 'tpb'], [w_in[0], w_cv[0], w_zhou[0]], 'k--o')
     # plt.ylim([0, 0.11])
     
-    # %%
+    
+    # %% Electrochemistry
+    # parameters for the object Echem
+    
+    l_tpb = 10e4        # I will have to check this value
+    xH2, xH2O = x_tpb
+    # xH2, xH20 = np.array([0.1, 0.9])
+    xO2 = 0.21
+    
+    # create the object Echem
+    Echem = ElectrochemicalSystem(['H2', 'O2', 'H2O'], 
+                                  T, P, xH2, xH2O, xO2, 
+                                  currentDensity, l_tpb,
+                                  k_c3=5.e-14)
+    
+    # extract values
+    dG_R = Echem.calculate_gibbs()
+    K1to5 = Echem.calculate_reaction_constants()
+    etaAct = Echem.calculateOverpotential()
+
+    # check, whether upper boundary has been reached
+    initial_guess = 0.1
+    tol = 1e-3
+    mask_failed = np.isclose(etaAct, initial_guess, atol=tol)
+    if mask_failed:
+        break
+    
+    # calculate the OCV
+    U_rev = Echem.calcUrev()
+    eta_leak = Echem.calcLeakVoltage()
+    OCV = U_rev - eta_leak
+    
+    
     voltage = OCV - etaAct
     voltages.append(voltage)
     # currentDensities.append(Echem.currentDensity())
@@ -161,13 +162,20 @@ for currentDensity in currentDensities:
 
 voltages = np.array(voltages)
 currentDensities = currentDensities[0:len(voltages)]
+x_tpbList = np.array(x_tpbList)
+xH2 = x_tpbList[:, 0]
+xH2O = x_tpbList[:, 1]
 
-standardized_plot(currentDensities, [voltages], 
+standardized_plot(currentDensities*1e-4, [voltages], 
                   r'current density / A cm$^{-2}$', 'voltage / V',
                   savepath=r"C:\users\smfadurm\Desktop\UV",
                   labels=['H2-H2O'],
-                  marker='.')
+                  marker=None,
+                  startAtZero=True)
 
+# standardized_plot(currentDensities, [xH2, xH2O],
+#                   r'current density / A cm$^{-2}$', 'molar fraction / 1',
+#                   labels=['H2', 'H2O'])
 # plt.figure()
 # plt.title('UV-Curve @ 800°C')
 # plt.plot(currentDensities, 
