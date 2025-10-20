@@ -88,8 +88,8 @@ l_tpb = 10e4        # I will have to check this value
 
 
 # %% Start the loop here
-N = 15
-currentDensities =np.linspace(1e-4, 4.2e4, N)
+N = 30
+currentDensities =np.linspace(1e-4, 4.25e4, N)
 
 # creating lists for storage
 voltages = []
@@ -102,18 +102,18 @@ for currentDensity in currentDensities:
     # %% Control volume 
       
     # flows
-    J_H2 = calculateMolarFlux(currentDensity, A)
-    J_O2 = 0.5 * J_H2
+    J_fuel = calculateMolarFlux(currentDensity, A)
+    J_air = np.array([0.5 * J_fuel[0], 0])
       
     # fuel electrode
-    mDotDiff_fuel = J_H2 * M_fuel
+    mDotDiff_fuel = J_fuel * M_fuel
     controlVolume_fuel = ControlVolume(mDotFuelIn, mDotDiff_fuel, x2w(x_fuel, M_fuel))
     mDotOut_fuel, w_fuel_channel, Uf = controlVolume_fuel.massBalance()     
     x_fuel_channel = w2x(w_fuel_channel, M_fuel)
     c_fuel_channel = x_fuel_channel * cT    
     
     # air electrode
-    mDotDiff_air = J_O2 * M_air
+    mDotDiff_air = J_air * M_air
     controlVolume_air = ControlVolume(mDotAirIn, mDotDiff_air, x2w(x_air, M_air))
     mDotOut_air, w_air_channel, Uf_air = controlVolume_air.massBalance()     
     x_air_channel = w2x(w_air_channel, M_air)
@@ -123,7 +123,8 @@ for currentDensity in currentDensities:
     # %% Dusty Gas Model fuel electrode
     Bg = permeabilityFactorBg(epsilon, tau, rp) # integrate into class
     dgm_fuel = DustyGasModelZhou(Bg, c_fuel_channel, M_fuel, mu_fuel, 
-                                 currentDensity, dEle, T, 
+                                 currentDensity, -J_fuel / A,
+                                 dEle, T, 
                                  D_binaryEff, D_knudsenEff)
     x_tpb, P_tpb = dgm_fuel.solveDGM()
     if x_tpb[0] < 0:
@@ -140,7 +141,8 @@ for currentDensity in currentDensities:
    
     # %% Dusty Gas Model Air Electrode
     dgm_air = DustyGasModelZhou(Bg, c_air_channel, M_air, mu_air, 
-                                currentDensity, dEle, T, 
+                                currentDensity, -J_air / A, 
+                                dEle, T, 
                                 D_binaryEff, D_knudsenEff)
     x_tpb_air, P_air = dgm_air.solveDGM() 
    

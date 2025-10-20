@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 
 class DustyGasModelZhou:
-    def __init__(self, Bg, c_ch, M, mu, i, L, T,
+    def __init__(self, Bg, c_ch, M, mu, i, j, L, T,
                  D_binaryEff, D_knudsenEff):
         # self.epsilon = epsilon
         # self.tau = tau
@@ -23,8 +23,9 @@ class DustyGasModelZhou:
         self.c_ch = c_ch
         self.M = M
         self.muMix = (c_ch*mu).sum()
-        F = ct.faraday*1.e-3
-        self.J = np.array([i / 2 / F, - i/2/F])
+        # F = ct.faraday*1e-3
+        # self.J = np.array([i / 2 / F, - i/2/F])
+        self.J = j
         self.z = L
         self.T = T
         self.cT = c_ch.sum()
