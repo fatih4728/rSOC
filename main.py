@@ -17,15 +17,21 @@ from CoolProp.CoolProp import PropsSI
 from electrochemistryAndThermodynamics_byCurrent import ElectrochemicalSystem
 from XY_2D import standardized_plot
 
+def getDensities(components, P, T):
+    rhoH2 = PropsSI('D', 'P', P, 'T', T, components[0])
+    rhoH2O = PropsSI('D', 'P', P, 'T', T, components[1])
+    return np.array([rhoH2, rhoH2O])
+
 # %% Parameters %%
+
+# control parameter
+xH2_in = 0.5
 
 # universal constants
 T = 700 + 273.15        # operating temperature of the soc
 P = 101325.0          # operating pressure of the soc
 F = 96485.33212331001          # faraday constant
 R = 8.314462618153241     # import universal gas constant
-# i = np.array([1369.7155, 15468.857, 24999.998])
-# i = i[0]
 
 
 # geometry
@@ -45,45 +51,47 @@ c_ch = x_ch * cT
 
 
 ## Diffusion Coefficients
-D_knudsen = D_Knudsen(rp, T, M*1e3)
-D_knudsenEff = D_knudsen * epsilon / tau
+D_knudsenEff = D_Knudsen(rp, T, M*1e3) * epsilon / tau
 D_binaryEff = np.array([[0., D_Fuller(T)], [D_Fuller(T), 0.]]) *epsilon/tau
+
+# flow parameters
+VdotFuel = 140 *1e-6 / 60  
+Tflow = 150 + 273.15 
+
+# density of the mix
+rho = getDensities(['H2', 'H2O'], P, Tflow)
+# Get viscosity of the mix
+muH2 = PropsSI('V', 'P', P, 'T', Tflow, 'H2')
+muH2O = PropsSI('V', 'P', P, 'T', Tflow, 'H2O')
+mu = np.array([muH2, muH2O])  
+# concentration at entrance
+x_in = np.array([xH2_in, 1 - xH2_in])
+w_in = x2w(x_in, M)
+mDotIn = VdotFuel * x_in * rho
+
+# parameters for the object Echem
+l_tpb = 10e4        # I will have to check this value
+xO2 = 0.21
 
 
 # %% Start the loop here
-N = 100
-# etaActList = np.linspace(0., 0.54, 20)
+N = 15
+currentDensities =np.linspace(1e-4, 5.e4, N)
+
+# creating lists for storage
 voltages = []
-currentDensities =np.linspace(1e-4, 5.2e4, N)
 pressures=[]
 x_tpbList=[]
-# for etaAct in etaActList:
+
 for currentDensity in currentDensities:
-        
+   
     
-    # %% Control volume
-    
-    # concentration at entrance
-    x_in = np.array([0.5, 1 - 0.5])
-    w_in = x2w(x_in, M)
-    
+    # %% Control volume Anode
+      
     # flows
     J = calculateMolarFlux(currentDensity, A)
-    VdotFuel = 140 *1e-6 / 60  
-    Tflow = 150 + 273.15 
-    
-    # density of the mix
-    rhoH2 = PropsSI('D', 'P', P, 'T', Tflow, 'H2')
-    rhoH2O = PropsSI('D', 'P', P, 'T', Tflow, 'H2O')
-    rho = np.array([rhoH2, rhoH2O])
-    # Get viscosity of the mix
-    muH2 = PropsSI('V', 'P', P, 'T', Tflow, 'H2')
-    muH2O = PropsSI('V', 'P', P, 'T', Tflow, 'H2O')
-    mu = np.array([muH2, muH2O])    
-    
-    
+      
     # calculate the values of the control volume
-    mDotIn = VdotFuel * x_in * rho
     mDotDiff = J * M
     controlVolume = ControlVolume(mDotIn, mDotDiff, x2w(x_in, M))
     # this has to give same values to Colin
@@ -92,14 +100,11 @@ for currentDensity in currentDensities:
     c_cv = x_cv * cT    # the total concentration may differ though
     
     
-    # %% Dusty Gas Model %%
-    
-    Bg = permeabilityFactorBg(epsilon, tau, rp)
+    # %% Dusty Gas Model Anode
+    Bg = permeabilityFactorBg(epsilon, tau, rp) # integrate into class
     dgm = DustyGasModelZhou(Bg, c_cv, M, mu, currentDensity, dEle, T, 
                             D_binaryEff, D_knudsenEff)
-    
     x_tpb, P_tpb = dgm.solveDGM()
-    x_tpbList.append(x_tpb)
     if x_tpb[0] < 0:
         print('##############################')
         print('Hydrogen is  depleted. Try increasing hydrogen \
@@ -109,27 +114,12 @@ for currentDensity in currentDensities:
         print('##############################')
         break
     
-    
-    w_zhou = x2w(x_tpb, M)
-    # print(f'w[H2, H20] @entrance is \t{w_in}')
-    # print(f'w[H2, H20] @channel is \t{w_cv}')
-    # print(f'w[H2, H20] @tpb is     \t{w_zhou}')
-    # print(f'The total pressure is {P_tpb*1e-5:.4} bar')
     pressures.append(P_tpb)
-    
-    # plt.figure()
-    # plt.title('concentration plot')
-    # plt.plot(['input', 'channel', 'tpb'], [w_in[0], w_cv[0], w_zhou[0]], 'k--o')
-    # plt.ylim([0, 0.11])
-    
+    x_tpbList.append(x_tpb)
     
     # %% Electrochemistry
-    # parameters for the object Echem
     
-    l_tpb = 10e4        # I will have to check this value
     xH2, xH2O = x_tpb
-    # xH2, xH20 = np.array([0.1, 0.9])
-    xO2 = 0.21
     
     # create the object Echem
     Echem = ElectrochemicalSystem(['H2', 'O2', 'H2O'], 
@@ -168,23 +158,16 @@ xH2O = x_tpbList[:, 1]
 
 standardized_plot(currentDensities*1e-4, [voltages], 
                   r'current density / A cm$^{-2}$', 'voltage / V',
-                  savepath=r"C:\users\smfadurm\Desktop\UV",
+                  savepath=None,
                   labels=['H2-H2O'],
-                  marker=None,
-                  startAtZero=True)
+                  marker='.',
+                  startAtZero=True,
+                  xAxisLim=[0, 5])
 
-# standardized_plot(currentDensities, [xH2, xH2O],
+# standardized_plot(currentDensities*1e-4, [xH2, xH2O],
 #                   r'current density / A cm$^{-2}$', 'molar fraction / 1',
-#                   labels=['H2', 'H2O'])
-# plt.figure()
-# plt.title('UV-Curve @ 800°C')
-# plt.plot(currentDensities, 
-#          voltages, 'ro' , label = '$x_{H2}$ = ' + str(xH2))
-# plt.xlim([0, 5.])
-# plt.ylim([0, 1.3])
-# plt.xlabel('current / A/cm²')
-# plt.ylabel('voltage / V')
-# plt.legend()
+#                   labels=['H2', 'H2O'],
+#                   xAxisLim=[0, 5])
 
 
 

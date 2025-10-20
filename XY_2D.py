@@ -18,6 +18,7 @@ def standardized_plot(
     xlabel="X", ylabel="Y", title=None,
     grid=False, style="seaborn-v0_8-paper",
     savepath=None, labels=None, startAtZero=True,
+    yAxisLim=None, xAxisLim=None,
     font="Helvetica", marker=None
 ):
     """
@@ -93,6 +94,12 @@ def standardized_plot(
         
         ax.set_xlim(left=xmin, right=int(max(x)+1))
         ax.set_ylim(bottom=int(y_min), top=int(y_max+1))
+    
+    if yAxisLim:
+        ax.set_ylim(bottom=yAxisLim[0], top=yAxisLim[1])
+    if xAxisLim:
+        ax.set_xlim(left=xAxisLim[0], right=xAxisLim[1])
+       
 
     # Add legend
     ax.legend()
