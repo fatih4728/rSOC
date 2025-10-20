@@ -4,6 +4,7 @@ Created on Tue Oct 14 12:58:52 2025
 
 Here I want to create my ideal 2D-XY-Graphic
 
+
 @author: smfadurm
 """
 
