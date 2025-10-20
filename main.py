@@ -7,34 +7,21 @@ calling the class test
 @author: smfadurm
 """
 
-import matplotlib.pyplot as plt
 import numpy as np
 from DustyGasModel import DustyGasModelZhou, permeabilityFactorBg
 from DustyGasModel import calculateMolarFlux, x2w, w2x
 from DustyGasModel import D_Fuller, D_Knudsen
-from DustyGasModel import ControlVolume
-from CoolProp.CoolProp import PropsSI
-from electrochemistryAndThermodynamics_byCurrent import ElectrochemicalSystem
+from DustyGasModel import ControlVolume, getDensities, getViscosities
+from eChemAndThermo import ElectrochemicalSystem
 from XY_2D import standardized_plot
 
-def getDensities(components, P, T):
-    rho = []
-    for i in components:
-        rho_x = PropsSI('D', 'P', P, 'T', T, i)
-        rho.append(rho_x)
-    return np.array(rho)
-
-def getViscosities(components, P, T):
-    mu = []
-    for i in components:
-        mu_x = PropsSI('V', 'P', P, 'T', T, i)
-        mu.append(mu_x)
-    return np.array(mu)
 
 # %% Parameters %%
 
 # control parameter
-xH2_in = 0.5
+xH2_in = 0.97
+N = 15
+currentDensities =np.linspace(1e-4, 4.25e4, N)
 
 # universal constants
 T = 700 + 273.15        # operating temperature of the soc
@@ -78,7 +65,6 @@ mu_air = getViscosities(['O2', 'N2'], P, Tflow)
 # concentration at entrance
 x_fuel = np.array([xH2_in, 1 - xH2_in])
 mDotFuelIn = VdotFuel * x_fuel * rho_fuel
-
 xO2 = 0.21
 x_air = np.array([xO2, 1 - xO2])
 mDotAirIn = VdotAir * x_air * rho_air
@@ -88,8 +74,6 @@ l_tpb = 10e4        # I will have to check this value
 
 
 # %% Start the loop here
-N = 30
-currentDensities =np.linspace(1e-4, 4.25e4, N)
 
 # creating lists for storage
 voltages = []
@@ -154,7 +138,7 @@ for currentDensity in currentDensities:
     Echem = ElectrochemicalSystem(['H2', 'O2', 'H2O'], 
                                   T, P, xH2, xH2O, xO2, 
                                   currentDensity, l_tpb,
-                                  k_c3=5.e-14)
+                                  k_c3=7.e-14)
     
     # extract values
     dG_R = Echem.calculate_gibbs()
@@ -170,7 +154,7 @@ for currentDensity in currentDensities:
     
     # calculate the OCV
     U_rev = Echem.calcUrev()
-    eta_leak = Echem.calcLeakVoltage()
+    eta_leak = Echem.calcLeakVoltage(1.)
     OCV = U_rev - eta_leak
     
     

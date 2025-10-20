@@ -24,7 +24,6 @@ class ElectrochemicalSystem:
         self.xH2 = xH2
         self.xH2O = xH2O
         self.xO = xO
-        # self.etaAct = etaAct
         self.l_tpb = l_tpb
         self.k_c3 = k_c3
         self.i = i
@@ -126,10 +125,10 @@ class ElectrochemicalSystem:
         return (-self.dG_R/2/self.F - self.R*self.T/2/self.F *
                 np.log(self.pH2O/self.pH2/(self.pO2**0.5) * self.P**0.5))
 
-    def calcLeakVoltage(self, i_A=0., i_A_lim=1.):
+    def calcLeakVoltage(self, i_A_lim=1.0):
         A, B, C, D = self.AtoD
         eta_leak_0 = -A * np.log(self.pO2)**B + C * (self.pH2/self.P)**D
-        return eta_leak_0 * (1 - np.tanh(i_A/i_A_lim))
+        return eta_leak_0 * (1 - np.tanh(self.i/i_A_lim))
 
     def currentDensity(self, etaAct):
         K1, K2, K3, K4, K5 = self.K1to5

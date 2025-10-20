@@ -12,6 +12,8 @@ import cantera as ct
 from scipy.optimize import fsolve
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
+from CoolProp.CoolProp import PropsSI
+
 
 
 class DustyGasModelZhou:
@@ -159,6 +161,19 @@ class ControlVolume:
         return mDotOut, np.array([yOutH2, 1-yOutH2]), Uf
 
 
+def getDensities(components, P, T):
+    rho = []
+    for i in components:
+        rho_x = PropsSI('D', 'P', P, 'T', T, i)
+        rho.append(rho_x)
+    return np.array(rho)
+
+def getViscosities(components, P, T):
+    mu = []
+    for i in components:
+        mu_x = PropsSI('V', 'P', P, 'T', T, i)
+        mu.append(mu_x)
+    return np.array(mu)
 
 def permeabilityFactorBg(epsilon, tau, rp):
     """
