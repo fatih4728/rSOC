@@ -18,9 +18,18 @@ from electrochemistryAndThermodynamics_byCurrent import ElectrochemicalSystem
 from XY_2D import standardized_plot
 
 def getDensities(components, P, T):
-    rhoH2 = PropsSI('D', 'P', P, 'T', T, components[0])
-    rhoH2O = PropsSI('D', 'P', P, 'T', T, components[1])
-    return np.array([rhoH2, rhoH2O])
+    rho = []
+    for i in components:
+        rho_x = PropsSI('D', 'P', P, 'T', T, i)
+        rho.append(rho_x)
+    return np.array(rho)
+
+def getViscosities(components, P, T):
+    mu = []
+    for i in components:
+        mu_x = PropsSI('V', 'P', P, 'T', T, i)
+        mu.append(mu_x)
+    return np.array(mu)
 
 # %% Parameters %%
 
@@ -43,40 +52,44 @@ dEle = 200e-6       # thickness of the electrode (affects mass balance a lot; bi
 A = 1.1e-4             # area in cm²
 
 # gas variables [H2, H2O]
-M = np.array([2e-3, 18e-3])   
+M_fuel = np.array([2e-3, 18e-3])   
+M_air = np.array([32e-3, 28e-3])
 cT = P/R/T 
 w = np.array([wH2 := 0.042427, 1 - wH2])
-x_ch = w2x(w, M)
+x_ch = w2x(w, M_fuel)
 c_ch = x_ch * cT
 
 
 ## Diffusion Coefficients
-D_knudsenEff = D_Knudsen(rp, T, M*1e3) * epsilon / tau
+D_knudsenEff = D_Knudsen(rp, T, M_fuel*1e3) * epsilon / tau
 D_binaryEff = np.array([[0., D_Fuller(T)], [D_Fuller(T), 0.]]) *epsilon/tau
 
 # flow parameters
-VdotFuel = 140 *1e-6 / 60  
+VdotFuel = 140 * 1e-6 / 60  
+VdotAir = 550 * 1e-6 / 60  
 Tflow = 150 + 273.15 
 
 # density of the mix
-rho = getDensities(['H2', 'H2O'], P, Tflow)
+rho_fuel = getDensities(['H2', 'H2O'], P, Tflow)
+rho_air = getDensities(['O2', 'N2'], P, Tflow)
 # Get viscosity of the mix
-muH2 = PropsSI('V', 'P', P, 'T', Tflow, 'H2')
-muH2O = PropsSI('V', 'P', P, 'T', Tflow, 'H2O')
-mu = np.array([muH2, muH2O])  
+mu_fuel = getViscosities(['H2', 'H2O'], P, Tflow)
+mu_air = getViscosities(['O2', 'N2'], P, Tflow)
 # concentration at entrance
-x_in = np.array([xH2_in, 1 - xH2_in])
-w_in = x2w(x_in, M)
-mDotIn = VdotFuel * x_in * rho
+x_fuel = np.array([xH2_in, 1 - xH2_in])
+mDotFuelIn = VdotFuel * x_fuel * rho_fuel
+
+xO2 = 0.21
+x_air = np.array([xO2, 1 - xO2])
+mDotAirIn = VdotAir * x_air * rho_air
 
 # parameters for the object Echem
 l_tpb = 10e4        # I will have to check this value
-xO2 = 0.21
 
 
 # %% Start the loop here
 N = 15
-currentDensities =np.linspace(1e-4, 5.e4, N)
+currentDensities =np.linspace(1e-4, 4.2e4, N)
 
 # creating lists for storage
 voltages = []
@@ -86,40 +99,54 @@ x_tpbList=[]
 for currentDensity in currentDensities:
    
     
-    # %% Control volume Anode
+    # %% Control volume 
       
     # flows
-    J = calculateMolarFlux(currentDensity, A)
+    J_H2 = calculateMolarFlux(currentDensity, A)
+    J_O2 = 0.5 * J_H2
       
-    # calculate the values of the control volume
-    mDotDiff = J * M
-    controlVolume = ControlVolume(mDotIn, mDotDiff, x2w(x_in, M))
-    # this has to give same values to Colin
-    mDotOut, w_cv, Uf = controlVolume.massBalance()     
-    x_cv = w2x(w_cv, M)
-    c_cv = x_cv * cT    # the total concentration may differ though
+    # fuel electrode
+    mDotDiff_fuel = J_H2 * M_fuel
+    controlVolume_fuel = ControlVolume(mDotFuelIn, mDotDiff_fuel, x2w(x_fuel, M_fuel))
+    mDotOut_fuel, w_fuel_channel, Uf = controlVolume_fuel.massBalance()     
+    x_fuel_channel = w2x(w_fuel_channel, M_fuel)
+    c_fuel_channel = x_fuel_channel * cT    
     
+    # air electrode
+    mDotDiff_air = J_O2 * M_air
+    controlVolume_air = ControlVolume(mDotAirIn, mDotDiff_air, x2w(x_air, M_air))
+    mDotOut_air, w_air_channel, Uf_air = controlVolume_air.massBalance()     
+    x_air_channel = w2x(w_air_channel, M_air)
+    c_air_channel = x_air_channel * cT
+
     
-    # %% Dusty Gas Model Anode
+    # %% Dusty Gas Model fuel electrode
     Bg = permeabilityFactorBg(epsilon, tau, rp) # integrate into class
-    dgm = DustyGasModelZhou(Bg, c_cv, M, mu, currentDensity, dEle, T, 
-                            D_binaryEff, D_knudsenEff)
-    x_tpb, P_tpb = dgm.solveDGM()
+    dgm_fuel = DustyGasModelZhou(Bg, c_fuel_channel, M_fuel, mu_fuel, 
+                                 currentDensity, dEle, T, 
+                                 D_binaryEff, D_knudsenEff)
+    x_tpb, P_tpb = dgm_fuel.solveDGM()
     if x_tpb[0] < 0:
         print('##############################')
         print('Hydrogen is  depleted. Try increasing hydrogen \
               concentration or decreasing the current density')
-        print(f'Current density: {currentDensity*1e-4:.2}')
+        print(f'Current density: {currentDensity*1e-4:.3}')
         # print(f'Overpotential: {etaAct:.2}')
         print('##############################')
         break
-    
+   
     pressures.append(P_tpb)
     x_tpbList.append(x_tpb)
-    
+   
+    # %% Dusty Gas Model Air Electrode
+    dgm_air = DustyGasModelZhou(Bg, c_air_channel, M_air, mu_air, 
+                                currentDensity, dEle, T, 
+                                D_binaryEff, D_knudsenEff)
+    x_tpb_air, P_air = dgm_air.solveDGM() 
+   
     # %% Electrochemistry
-    
     xH2, xH2O = x_tpb
+    xO2, xN2 = x_tpb_air
     
     # create the object Echem
     Echem = ElectrochemicalSystem(['H2', 'O2', 'H2O'], 
