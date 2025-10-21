@@ -20,7 +20,8 @@ def standardized_plot(
     grid=False, style="seaborn-v0_8-paper",
     savepath=None, labels=None, startAtZero=True,
     yAxisLim=None, xAxisLim=None,
-    font="Helvetica", marker=None
+    font="Helvetica", marker=None,
+    oneFigure=True
 ):
     """
     x : list or array
@@ -49,8 +50,9 @@ def standardized_plot(
         plt.rcParams['font.family'] = 'sans-serif'
         plt.rcParams['font.sans-serif'] = [font]
 
-    # Create a new figure and axis
-    fig, ax = plt.subplots(figsize=(6*0.7, 4*0.7))
+    if oneFigure:
+        # Create a new figure and axis
+        fig, ax = plt.subplots(figsize=(6*0.7, 4*0.7))
   
     # Plot each dataset and keep handles for legend
     color=['#F46A25', '#87CEEB', 'purple', '#B2B2B2', 'grey', 'lime']

@@ -35,10 +35,27 @@ class DustyGasModelZhou:
         self.N = 2
         self.D_binaryEff = D_binaryEff
         self.D_knudsenEff = D_knudsenEff
-        self.Bg = Bg
+        # self.Bg = Bg
         self.R = ct.gas_constant*1.e-3
         self.P = ct.one_atm
-                
+        self.epsilon = Bg[0]
+        self.tau = Bg[1]
+        self.rp = Bg[2]
+        
+        self.permeabilityFactorBg()                
+        
+    def permeabilityFactorBg(self):
+        """
+        This calculates the permeability factor commonly noted as Bg
+        Here the Kozeny-Carman relationship is used, according to the
+        Zhou paper.
+        
+        """
+        # 5.37e-17
+        self.Bg = (self.epsilon**3 * (2*self.rp)**2 /
+                   72 / self.tau / (1 - self.epsilon)**2)
+        return  
+
 
     def calculate_D_DGM(self, x_ch):
         """
@@ -175,15 +192,6 @@ def getViscosities(components, P, T):
         mu.append(mu_x)
     return np.array(mu)
 
-def permeabilityFactorBg(epsilon, tau, rp):
-    """
-    This calculates the permeability factor commonly noted as Bg
-    Here the Kozeny-Carman relationship is used, according to the
-    Zhou paper.
-    
-    """
-    # 5.37e-17
-    return  (epsilon**3 * (2*rp)**2 / 72 / tau / (1 - epsilon)**2)
 
 def calculateMolarFlux(i, A):
     """

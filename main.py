@@ -8,7 +8,8 @@ calling the class test
 """
 
 import numpy as np
-from DustyGasModel import DustyGasModelZhou, permeabilityFactorBg
+import matplotlib.pyplot as plt
+from DustyGasModel import DustyGasModelZhou
 from DustyGasModel import calculateMolarFlux, x2w, w2x
 from DustyGasModel import D_Fuller, D_Knudsen
 from DustyGasModel import ControlVolume, getDensities, getViscosities
@@ -19,9 +20,14 @@ from XY_2D import standardized_plot
 # %% Parameters %%
 
 # control parameter
-xH2_in = 0.97
-N = 15
-currentDensities =np.linspace(1e-4, 4.25e4, N)
+xH2_in = 0.5
+
+n_current = 15
+currentDensities =np.linspace(1e-4, 4.25e4, n_current)
+
+n_conc = 1
+inletConcentrations = np.linspace(0.5, 0.97, n_conc)
+
 
 # universal constants
 T = 700 + 273.15        # operating temperature of the soc
@@ -33,7 +39,7 @@ R = 8.314462618153241     # import universal gas constant
 # geometry
 epsilon = 0.54       # porosity of the electrode (affects mass balance; smaller -> worse)
 tau = 4.81            # tortuosity of the electrode
-dp = 2.7e-6
+dp = 2.7e-6         # fit parameter
 rp = 1.5e-7          # radius of the pores (affects mass balance; smaller -> worse)
 dEle = 200e-6       # thickness of the electrode (affects mass balance a lot; bigger -> worse)
 A = 1.1e-4             # area in cm²
@@ -62,12 +68,6 @@ rho_air = getDensities(['O2', 'N2'], P, Tflow)
 # Get viscosity of the mix
 mu_fuel = getViscosities(['H2', 'H2O'], P, Tflow)
 mu_air = getViscosities(['O2', 'N2'], P, Tflow)
-# concentration at entrance
-x_fuel = np.array([xH2_in, 1 - xH2_in])
-mDotFuelIn = VdotFuel * x_fuel * rho_fuel
-xO2 = 0.21
-x_air = np.array([xO2, 1 - xO2])
-mDotAirIn = VdotAir * x_air * rho_air
 
 # parameters for the object Echem
 l_tpb = 10e4        # I will have to check this value
@@ -77,11 +77,18 @@ l_tpb = 10e4        # I will have to check this value
 
 # creating lists for storage
 voltages = []
-pressures=[]
-x_tpbList=[]
+pressures = np.zeros((n_conc, n_current))
+x_tpb = np.zeros((n_conc, n_current))
+
+
+# concentration at entrance
+x_fuel = np.array([xH2_in, 1 - xH2_in])
+mDotFuelIn = VdotFuel * x_fuel * rho_fuel
+xO2 = 0.21
+x_air = np.array([xO2, 1 - xO2])
+mDotAirIn = VdotAir * x_air * rho_air
 
 for currentDensity in currentDensities:
-   
     
     # %% Control volume 
       
@@ -105,8 +112,9 @@ for currentDensity in currentDensities:
 
     
     # %% Dusty Gas Model fuel electrode
-    Bg = permeabilityFactorBg(epsilon, tau, rp) # integrate into class
-    dgm_fuel = DustyGasModelZhou(Bg, c_fuel_channel, M_fuel, mu_fuel, 
+    # Bg = permeabilityFactorBg(epsilon, tau, rp) # integrate into class
+    BgParams = np.array([epsilon, tau, rp])
+    dgm_fuel = DustyGasModelZhou(BgParams, c_fuel_channel, M_fuel, mu_fuel, 
                                  currentDensity, -J_fuel / A,
                                  dEle, T, 
                                  D_binaryEff, D_knudsenEff)
@@ -120,11 +128,11 @@ for currentDensity in currentDensities:
         print('##############################')
         break
    
-    pressures.append(P_tpb)
-    x_tpbList.append(x_tpb)
+    # pressures.append(P_tpb)
+    # x_tpbList.append(x_tpb)
    
     # %% Dusty Gas Model Air Electrode
-    dgm_air = DustyGasModelZhou(Bg, c_air_channel, M_air, mu_air, 
+    dgm_air = DustyGasModelZhou(BgParams, c_air_channel, M_air, mu_air, 
                                 currentDensity, -J_air / A, 
                                 dEle, T, 
                                 D_binaryEff, D_knudsenEff)
@@ -153,26 +161,16 @@ for currentDensity in currentDensities:
         break
     
     # calculate the OCV
-    U_rev = Echem.calcUrev()
-    eta_leak = Echem.calcLeakVoltage(1.)
-    OCV = U_rev - eta_leak
-    
-    
-    voltage = OCV - etaAct
-    voltages.append(voltage)
-    # currentDensities.append(Echem.currentDensity())
+    voltages.append(Echem.calcVoltage())
 
 
-voltages = np.array(voltages)
-currentDensities = currentDensities[0:len(voltages)]
-x_tpbList = np.array(x_tpbList)
-xH2 = x_tpbList[:, 0]
-xH2O = x_tpbList[:, 1]
+# plot the VI-Curve
+currentDensities = currentDensities[0:len(voltages)] *1.e-4
 
-standardized_plot(currentDensities*1e-4, [voltages], 
+standardized_plot(currentDensities, [voltages], 
                   r'current density / A cm$^{-2}$', 'voltage / V',
                   savepath=None,
-                  labels=['H2-H2O'],
+                  labels= [str(xH2_in) + str(' H2')],
                   marker='.',
                   startAtZero=True,
                   xAxisLim=[0, 5])

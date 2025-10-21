@@ -40,6 +40,8 @@ class ElectrochemicalSystem:
         self.set_adsorption_properties()
         self.calculate_reaction_constants()
         self.set_kinetic_coefficients()
+        
+
 
         # Activation energy from equilibrium constants
         K1, K2, K3, K4, K5 = self.K1to5
@@ -121,14 +123,12 @@ class ElectrochemicalSystem:
     # ---------------- Electrochemistry ----------------
 
     def calcUrev(self):
-        # the concentration has to come from the DGM
+        # Is this not rather the Nernst voltage?
+        self.Urev = (-self.dG_R/2/self.F - self.R*self.T/2/self.F *
+                np.log(self.pH2O/self.pH2/(self.pO2**0.5) * self.P**0.5))
         return (-self.dG_R/2/self.F - self.R*self.T/2/self.F *
                 np.log(self.pH2O/self.pH2/(self.pO2**0.5) * self.P**0.5))
 
-    def calcLeakVoltage(self, i_A_lim=1.0):
-        A, B, C, D = self.AtoD
-        eta_leak_0 = -A * np.log(self.pO2)**B + C * (self.pH2/self.P)**D
-        return eta_leak_0 * (1 - np.tanh(self.i/i_A_lim))
 
     def currentDensity(self, etaAct):
         K1, K2, K3, K4, K5 = self.K1to5
@@ -138,18 +138,38 @@ class ElectrochemicalSystem:
         # i03cross & i3 sind von den partialdrücken abhängig.
         i03cross = (i03star * ((self.pH2/pH2ad)**0.25 * self.pH2O**0.75) 
                     / (1 + (self.pH2/pH2ad)**0.5))
-        i3 = (i03cross * (np.exp(0.5*self.F* etaAct /self.R/self.T) -
+        f1 = (i03cross * (np.exp(0.5*self.F* etaAct /self.R/self.T) -
                          np.exp(-1.5*self.F* etaAct /self.R/self.T)) 
               / (np.exp(-self.F* etaAct /self.R/self.T) 
               * (1 + 1/K5) + (K2/K3/K4/K5*self.xH2O)**0.5)
               - self.i)
-        return i3
+        return f1
+    
+    def calcLeakVoltage(self, i_A_lim=1.0e4):
+        A, B, C, D = self.AtoD
+        eta_leak_0 = -A * np.log(self.pO2)**B + C * (self.pH2/self.P)**D
+        self.etaLeak = eta_leak_0 * (1 - np.tanh(self.i/i_A_lim))
+        return eta_leak_0 * (1 - np.tanh(self.i/i_A_lim))
+    
+    def calcOhmsResistance(self, R=1e-6):
+        self.etaOhm = R * self.i
+        return 
     
     def calculateOverpotential(self):
         self.etaAct = fsolve(self.currentDensity, 0.1)[0]
         return self.etaAct
 
+    def calcVoltage(self, R = 1e-6, i_A_lim=1.0e4):
+        # Electrochemistry
+        self.calcUrev()
+        self.calculateOverpotential()
+        self.calcLeakVoltage(i_A_lim)
+        self.calcOhmsResistance(R)
+        return self.Urev - self.etaAct - self.etaLeak - self.etaOhm
+
+    # %%
     # ---------------- Surface Coverages ----------------
+
     def DEN_Ni(self, N):
         xH2 = np.linspace(0., 1., N)
         return 1 + (self.K1to5[0]*xH2)**0.5
@@ -179,7 +199,9 @@ class ElectrochemicalSystem:
     
     
     
+# %%
 if __name__=="__main__":
+
     
     # universal constants
     
